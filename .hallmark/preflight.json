@@ -1,0 +1,15 @@
+{
+  "scannedAt": "2026-07-17",
+  "designSystem": "design.md",
+  "fontStack": "Poppins via next/font/google",
+  "palette": "SiagaKita semantic OKLCH tokens",
+  "motion": "motion-cut with reduced-motion fallback",
+  "spacing": "4px and 8px base scale",
+  "framework": "Next.js 16 App Router, Tailwind CSS v4, shadcn/ui",
+  "preserve": [
+    "map-centric command center",
+    "technical utilitarian tone",
+    "navy, teal, and critical red hierarchy",
+    "light glass surfaces over maps"
+  ]
+}

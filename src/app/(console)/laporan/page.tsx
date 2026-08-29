@@ -12,11 +12,15 @@ import { CardContent, CardDescription, CardHeader, CardTitle } from "@/component
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { createFieldReport, openEventFromReport, verifyFieldReport } from "@/lib/actions/operations";
+import { requireProfile } from "@/lib/auth";
+import { roleCapabilities } from "@/lib/role-ui";
 import { getOperationsData } from "@/lib/repositories/operations";
 
 const reportStatus = { baru: "Baru", diverifikasi: "Diverifikasi", ditindaklanjuti: "Ditindaklanjuti" };
 
 export default async function ReportsPage() {
+  const profile = await requireProfile();
+  const capabilities = roleCapabilities(profile.role);
   const { fieldReports } = await getOperationsData();
   const reportStages = [
     {
@@ -42,9 +46,9 @@ export default async function ReportsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Laporan & Zero-Grid"
-        description="Satukan laporan web, SMS, dan petugas lapangan ke antrean verifikasi yang dapat ditindaklanjuti."
-        actions={<MutationAction action={createFieldReport} label="Buat laporan" fields={{ location: "Laporan web", reporter: "Operator BPBD", summary: "Laporan baru membutuhkan verifikasi petugas lapangan.", channel: "Web", severity: "warning" }} />}
+        title={profile.role === "field_officer" ? "Laporan Saya" : "Laporan & Zero-Grid"}
+        description={profile.role === "field_officer" ? "Catat laporan lapangan dan pantau status tindak lanjut dari BPBD." : "Satukan laporan web, SMS, dan petugas lapangan ke antrean verifikasi yang dapat ditindaklanjuti."}
+        actions={capabilities.canCreateReport ? <MutationAction action={createFieldReport} label="Buat laporan" fields={{ location: "Laporan web", reporter: profile.fullName, summary: "Laporan baru membutuhkan verifikasi petugas lapangan.", channel: profile.role === "field_officer" ? "Petugas" : "Web", severity: "warning" }} /> : null}
       />
 
       <OperationalBrief
@@ -75,11 +79,11 @@ export default async function ReportsPage() {
                 <article key={report.id} className="rounded-xl border bg-background/72 p-4">
                   <div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{report.id}</p><p className="mt-1 text-xs text-muted-foreground">{report.location} · {report.receivedAt}</p></div><StatusBadge status={report.severity} /></div>
                   <p className="mt-3 text-sm leading-6">{report.summary}</p>
-                  <div className="mt-4 flex flex-wrap items-center gap-2 border-t pt-3"><Badge variant={report.channel === "SMS Zero-Grid" ? "secondary" : "outline"}>{report.channel}</Badge><Badge variant="outline">{reportStatus[report.status]}</Badge><MutationAction className="ml-auto" action={verifyFieldReport} label={report.status === "baru" ? "Verifikasi" : "Tindak lanjut"} fields={{ code: report.id }} variant={report.status === "baru" ? "outline" : "secondary"} />{report.status !== "baru" ? <ConfirmMutationAction action={openEventFromReport} label="Buka kejadian" title={`Buka kejadian dari ${report.id}?`} description={`Laporan ${report.location} akan menjadi kejadian aktif baru bila belum terhubung ke kejadian lain.`} consequence="Sistem membuat kejadian baru, menghubungkan laporan, dan mencatat keputusan operator di audit log." fields={{ code: report.id, name: `Kejadian ${report.location}` }} /> : null}</div>
+                  <div className="mt-4 flex flex-wrap items-center gap-2 border-t pt-3"><Badge variant={report.channel === "SMS Zero-Grid" ? "secondary" : "outline"}>{report.channel}</Badge><Badge variant="outline">{reportStatus[report.status]}</Badge>{capabilities.canVerifyReport ? <MutationAction className="ml-auto" action={verifyFieldReport} label={report.status === "baru" ? "Verifikasi" : "Tindak lanjut"} fields={{ code: report.id }} variant={report.status === "baru" ? "outline" : "secondary"} /> : null}{capabilities.canOpenIncident && report.status !== "baru" ? <ConfirmMutationAction action={openEventFromReport} label="Buka kejadian" title={`Buka kejadian dari ${report.id}?`} description={`Laporan ${report.location} akan menjadi kejadian aktif baru bila belum terhubung ke kejadian lain.`} consequence="Sistem membuat kejadian baru, menghubungkan laporan, dan mencatat keputusan operator di audit log." fields={{ code: report.id, name: `Kejadian ${report.location}` }} /> : null}</div>
                 </article>
               ))}
             </div>
-            <div className="hidden md:block"><Table><TableHeader><TableRow><TableHead>ID & lokasi</TableHead><TableHead>Kanal</TableHead><TableHead>Ringkasan</TableHead><TableHead>Status</TableHead><TableHead>Aksi</TableHead></TableRow></TableHeader><TableBody>{fieldReports.map((report) => <TableRow key={report.id}><TableCell><p className="font-medium">{report.id}</p><p className="mt-1 text-xs text-muted-foreground">{report.location} · {report.receivedAt}</p></TableCell><TableCell><Badge variant={report.channel === "SMS Zero-Grid" ? "secondary" : "outline"}>{report.channel}</Badge></TableCell><TableCell className="min-w-60 max-w-sm whitespace-normal"><p className="line-clamp-2 text-sm leading-6">{report.summary}</p><StatusBadge status={report.severity} className="mt-2 w-fit" /></TableCell><TableCell><Badge variant="outline">{reportStatus[report.status]}</Badge></TableCell><TableCell><div className="flex flex-wrap gap-2"><MutationAction action={verifyFieldReport} label={report.status === "baru" ? "Verifikasi" : "Tindak lanjut"} fields={{ code: report.id }} variant={report.status === "baru" ? "outline" : "secondary"} />{report.status !== "baru" ? <ConfirmMutationAction action={openEventFromReport} label="Buka kejadian" title={`Buka kejadian dari ${report.id}?`} description={`Laporan ${report.location} akan menjadi kejadian aktif baru bila belum terhubung ke kejadian lain.`} consequence="Sistem membuat kejadian baru, menghubungkan laporan, dan mencatat keputusan operator di audit log." fields={{ code: report.id, name: `Kejadian ${report.location}` }} /> : null}</div></TableCell></TableRow>)}</TableBody></Table></div>
+            <div className="hidden md:block"><Table><TableHeader><TableRow><TableHead>ID & lokasi</TableHead><TableHead>Kanal</TableHead><TableHead>Ringkasan</TableHead><TableHead>Status</TableHead>{capabilities.canVerifyReport || capabilities.canOpenIncident ? <TableHead>Aksi</TableHead> : null}</TableRow></TableHeader><TableBody>{fieldReports.map((report) => <TableRow key={report.id}><TableCell><p className="font-medium">{report.id}</p><p className="mt-1 text-xs text-muted-foreground">{report.location} · {report.receivedAt}</p></TableCell><TableCell><Badge variant={report.channel === "SMS Zero-Grid" ? "secondary" : "outline"}>{report.channel}</Badge></TableCell><TableCell className="min-w-60 max-w-sm whitespace-normal"><p className="line-clamp-2 text-sm leading-6">{report.summary}</p><StatusBadge status={report.severity} className="mt-2 w-fit" /></TableCell><TableCell><Badge variant="outline">{reportStatus[report.status]}</Badge></TableCell>{capabilities.canVerifyReport || capabilities.canOpenIncident ? <TableCell><div className="flex flex-wrap gap-2">{capabilities.canVerifyReport ? <MutationAction action={verifyFieldReport} label={report.status === "baru" ? "Verifikasi" : "Tindak lanjut"} fields={{ code: report.id }} variant={report.status === "baru" ? "outline" : "secondary"} /> : null}{capabilities.canOpenIncident && report.status !== "baru" ? <ConfirmMutationAction action={openEventFromReport} label="Buka kejadian" title={`Buka kejadian dari ${report.id}?`} description={`Laporan ${report.location} akan menjadi kejadian aktif baru bila belum terhubung ke kejadian lain.`} consequence="Sistem membuat kejadian baru, menghubungkan laporan, dan mencatat keputusan operator di audit log." fields={{ code: report.id, name: `Kejadian ${report.location}` }} /> : null}</div></TableCell> : null}</TableRow>)}</TableBody></Table></div>
           </CardContent>
         </OperationalCard>
         <ZeroGridSimulator />

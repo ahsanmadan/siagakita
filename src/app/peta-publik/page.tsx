@@ -55,8 +55,6 @@ export default async function PublicMapPage() {
       points={points}
       externalSources={[
         ...(bmkgEarthquake ? ["BMKG"] : []),
-        "Open-Meteo",
-        "data hujan",
       ]}
     />
   );

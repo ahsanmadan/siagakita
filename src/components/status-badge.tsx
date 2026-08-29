@@ -3,10 +3,10 @@ import { cn } from "@/lib/utils";
 import type { CrisisStatus } from "@/lib/types";
 
 const labels: Record<CrisisStatus, string> = {
-  critical: "Kritis",
-  major: "Mayor",
-  warning: "Waspada",
-  safe: "Terkendali",
+  critical: "Bahaya Tinggi",
+  major: "Terdampak Berat",
+  warning: "Perlu Waspada",
+  safe: "Relatif Aman",
 };
 
 const styles: Record<CrisisStatus, string> = {
@@ -18,13 +18,7 @@ const styles: Record<CrisisStatus, string> = {
 
 export function StatusBadge({ status, className }: { status: CrisisStatus; className?: string }) {
   return (
-    <Badge variant="outline" className={cn("gap-1.5 rounded-full px-2.5 py-1 font-medium", styles[status], className)}>
-      <span className={cn("size-1.5 rounded-full", {
-        "bg-status-critical": status === "critical",
-        "bg-status-major": status === "major",
-        "bg-status-warning": status === "warning",
-        "bg-status-safe": status === "safe",
-      })} />
+    <Badge variant="outline" className={cn("rounded-full px-2.5 py-1 font-medium", styles[status], className)}>
       {labels[status]}
     </Badge>
   );

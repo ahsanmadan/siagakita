@@ -1,23 +1,23 @@
 "use client";
 
 import { type ReactNode } from "react";
-import Image from "next/image";
-import { DotPattern } from "@/components/ui/dot-pattern";
+import { SphereGridBackground } from "@/components/ui/background-components";
+import { LegalModal } from "@/components/legal-modal";
 import { cn } from "@/lib/utils";
 
 export function AuthUI({
   children,
-  image,
   className,
 }: {
   children: ReactNode;
-  image: { src: string; alt: string };
+  image?: { src: string; alt: string };
+  slides?: unknown[];
   className?: string;
 }) {
   return (
     <main
       className={cn(
-        "grid min-h-svh overflow-hidden bg-[#050607] text-white lg:grid-cols-[minmax(32rem,0.76fr)_minmax(0,1.24fr)]",
+        "grid min-h-svh overflow-hidden bg-white text-foreground lg:grid-cols-[minmax(27.5rem,0.68fr)_minmax(0,1.32fr)]",
         className,
       )}
     >
@@ -28,24 +28,28 @@ export function AuthUI({
         }
       `}</style>
 
-      <section className="relative flex min-h-svh items-center justify-center bg-[radial-gradient(circle_at_18%_12%,rgb(217_238_232/0.78),transparent_32rem),linear-gradient(180deg,#fbfdfc_0%,#edf7f4_100%)] px-6 py-12 text-[#0e2b3c] sm:px-10 lg:px-12 xl:px-16">
-        <DotPattern
-          width={32}
-          height={32}
-          cr={1}
-          className="fill-[#0e2b3c]/[0.13] [mask-image:linear-gradient(115deg,white_0%,white_58%,transparent_92%)]"
-        />
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-white/72 to-transparent" />
-        <div className="pointer-events-none absolute -left-28 top-6 size-80 rounded-full bg-[#d7eee8]/58 blur-3xl" />
-        <div className="relative z-10 w-full">{children}</div>
+      {/* Sisi Kiri: Form Login Elevated */}
+      <section className="relative z-20 flex min-h-svh items-center justify-center bg-background px-6 py-12 sm:px-10 border-r border-border shadow-[16px_0_40px_-12px_rgba(15,23,42,0.09)] dark:shadow-[16px_0_40px_-12px_rgba(0,0,0,0.45)]">
+        {/* Logo SiagaKita di Pojok Kiri Atas Section */}
+        <div className="absolute top-6 left-6 sm:top-8 sm:left-10 z-30 flex items-center gap-2">
+          <img
+            src="/brand/logo-siagakita.png"
+            alt="Logo SiagaKita"
+            className="h-7 w-auto object-contain"
+          />
+        </div>
+
+        <SphereGridBackground />
+        <div className="relative z-10 w-full flex justify-center">{children}</div>
+
+        {/* Ketentuan Layanan & Kebijakan Privasi di Tengah Bawah Section */}
+        <div className="absolute bottom-6 sm:bottom-8 inset-x-0 z-30 flex items-center justify-center text-center pointer-events-auto">
+          <LegalModal />
+        </div>
       </section>
 
-      <section className="relative hidden min-h-svh overflow-clip bg-[#061116] lg:block">
-        <Image src={image.src} alt={image.alt} fill priority className="object-cover object-center" sizes="60vw" />
-        <div className="absolute inset-0 bg-gradient-to-br from-black/72 via-[color-mix(in_oklch,var(--color-brand)_32%,transparent)] to-black/82" />
-        <div className="absolute inset-0 opacity-[0.16] [background-image:linear-gradient(rgb(255_255_255/0.20)_1px,transparent_1px),linear-gradient(90deg,rgb(255_255_255/0.20)_1px,transparent_1px)] [background-size:72px_72px]" />
-        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/72 via-black/20 to-transparent" />
-      </section>
+      {/* Sisi Kanan: Putih Polos Bersih */}
+      <section className="relative z-10 hidden min-h-svh bg-white lg:block select-none" />
     </main>
   );
 }

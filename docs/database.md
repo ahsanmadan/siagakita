@@ -1,7 +1,7 @@
 # Dokumentasi Database SiagaKita
 
-Tanggal pembaruan: 9 Agustus 2026
-Status: production-lite tahap awal, Supabase hosted free tier
+Tanggal pembaruan: 29 Agustus 2026
+Status: Production-ready prototype, Supabase Cloud (siagakita-kmipn)
 
 Dokumen ini menjadi lampiran teknis database SiagaKita. Isinya menjelaskan struktur data, hak akses, alur mutasi, dan batas keamanan yang dipakai pada aplikasi. Dokumen ini tidak menyertakan API key, password, atau nilai rahasia dari `.env.local`.
 

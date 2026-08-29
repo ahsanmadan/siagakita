@@ -14,7 +14,6 @@ import {
   RadioTower,
   RefreshCw,
   Siren,
-  Settings,
   TentTree,
   TriangleAlert,
   Wifi,
@@ -51,16 +50,18 @@ import {
 } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverDescription, PopoverHeader, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
+import type { AppRole } from "@/lib/auth";
+import { roleMission, roleNavigation, type NavigationKey } from "@/lib/role-ui";
 
-const navigation = [
-  { label: "Pusat Kendali", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Kejadian", href: "/kejadian", icon: RadioTower },
-  { label: "Posko & Kebutuhan", href: "/posko", icon: TentTree },
-  { label: "Logistik", href: "/logistik", icon: Boxes },
-  { label: "Laporan", href: "/laporan", icon: ClipboardList },
-  { label: "Audit Log", href: "/audit-log", icon: FileClock },
-  { label: "Peta Publik", href: "/peta-publik", icon: Map },
-];
+const navigation: Record<NavigationKey, { label: string; fieldOfficerLabel?: string; href: string; icon: typeof LayoutDashboard }> = {
+  dashboard: { label: "Pusat Kendali", href: "/dashboard", icon: LayoutDashboard },
+  events: { label: "Kejadian", href: "/kejadian", icon: RadioTower },
+  shelters: { label: "Posko & Kebutuhan", href: "/posko", icon: TentTree },
+  logistics: { label: "Logistik", href: "/logistik", icon: Boxes },
+  reports: { label: "Laporan", fieldOfficerLabel: "Laporan Saya", href: "/laporan", icon: ClipboardList },
+  audit: { label: "Audit Log", href: "/audit-log", icon: FileClock },
+  publicMap: { label: "Peta Publik", href: "/peta-publik", icon: Map },
+};
 
 const realtimeStatusCopy = {
   connecting: { label: "Menyambungkan", detail: "Menyambungkan pembaruan data operasional.", tone: "bg-status-warning" },
@@ -73,16 +74,23 @@ export function AppShell({
   children,
   profileName,
   profileRole,
+  appRole,
   activeEvents,
   signOutAction,
 }: {
   children: ReactNode;
   profileName: string;
   profileRole: string;
+  appRole: AppRole;
   activeEvents: number;
   signOutAction: () => Promise<void>;
 }) {
   const pathname = usePathname();
+  const visibleNavigation = roleNavigation(appRole).map((key) => ({
+    ...navigation[key],
+    label: appRole === "field_officer" && navigation[key].fieldOfficerLabel ? navigation[key].fieldOfficerLabel : navigation[key].label,
+  }));
+  const mission = roleMission(appRole);
   const realtime = useRealtimeStatus();
   const realtimeCopy = realtimeStatusCopy[realtime.status];
   const lastUpdateTime = realtime.lastUpdateAt
@@ -111,7 +119,7 @@ export function AppShell({
             <SidebarGroupLabel>Operasional</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu className="group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-2.5">
-                {navigation.map((item) => {
+                {visibleNavigation.map((item) => {
                   const active = pathname === item.href || (item.href.startsWith("/kejadian") && pathname.startsWith("/kejadian"));
                   return (
                     <SidebarMenuItem key={item.href}>
@@ -130,20 +138,17 @@ export function AppShell({
         </SidebarContent>
         <SidebarFooter className="p-3 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:pb-4">
           <div className="rounded-lg border border-sidebar-border bg-sidebar-accent/50 p-3 group-data-[collapsible=icon]:hidden">
-            <div className="flex items-center gap-2 text-xs font-medium">
-              <span className="size-2 rounded-full bg-status-safe" />
-              Sistem aktif
+            <div className="flex items-center justify-between gap-2 text-xs font-medium">
+              <span className="inline-flex items-center gap-2">
+                <span className="size-2 rounded-full bg-status-safe" />
+                Sistem aktif
+              </span>
+              <Badge variant="outline" className="rounded-full bg-background px-2 text-[10px]">
+                {profileRole}
+              </Badge>
             </div>
-            <p className="mt-1 text-[11px] leading-4 text-muted-foreground">Data tersimpan dan setiap aksi penting tercatat.</p>
+            <p className="mt-2 text-[11px] leading-4 text-muted-foreground">{mission}</p>
           </div>
-          <SidebarMenu className="group-data-[collapsible=icon]:items-center">
-            <SidebarMenuItem>
-              <SidebarMenuButton tooltip="Pengaturan" className="siagakita-rail-button">
-                <Settings />
-                <span className="group-data-[collapsible=icon]:hidden">Pengaturan</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>
@@ -159,6 +164,9 @@ export function AppShell({
           <Badge variant="outline" className="hidden gap-2 rounded-full bg-card sm:flex">
             <span className={cn("size-2 rounded-full", realtimeCopy.tone)} />
             Pembaruan {realtimeCopy.label}
+          </Badge>
+          <Badge variant="secondary" className="hidden max-w-[18rem] rounded-full px-3 py-1.5 text-xs font-semibold md:inline-flex">
+            Demo role: {profileRole}
           </Badge>
           <div className="ml-auto flex items-center gap-2">
             <DropdownMenu>

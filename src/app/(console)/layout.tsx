@@ -12,7 +12,7 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
 
   return (
     <RealtimeProvider>
-      <AppShell profileName={profile.fullName} profileRole={roleLabel(profile.role)} activeEvents={metrics.activeEvents} signOutAction={signOutAction}>
+      <AppShell profileName={profile.fullName} profileRole={roleLabel(profile.role)} appRole={profile.role} activeEvents={metrics.activeEvents} signOutAction={signOutAction}>
         <PageTransition className="min-w-0">{children}</PageTransition>
       </AppShell>
     </RealtimeProvider>

@@ -1,120 +1,205 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Eye, EyeOff, LoaderCircle, MapPinned } from "lucide-react";
-import { BrandMark } from "@/components/brand-mark";
+import { ArrowLeft, Eye, EyeOff, LoaderCircle } from "lucide-react";
 import { signInAction } from "@/lib/actions/auth";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { InputShake } from "@/components/ui/input-shake";
+import { LegalModal } from "@/components/legal-modal";
 
 type LoginSystemStatus = {
   activeEventsCount: number | null;
   available: boolean;
 };
 
-function systemStatusText(status: LoginSystemStatus) {
-  if (status.available && status.activeEventsCount !== null) {
-    return `${status.activeEventsCount} kejadian aktif · Sistem operasional`;
-  }
-
-  return "Sistem operasional";
-}
+const demoAccounts = [
+  { role: "BPBD", email: "operator@siagakita.local" },
+  { role: "Lapangan", email: "lapangan@siagakita.local" },
+  { role: "Posko", email: "posko@siagakita.local" },
+  { role: "Gudang", email: "gudang@siagakita.local" },
+];
 
 export function LoginForm({ systemStatus }: { systemStatus: LoginSystemStatus }) {
   const [showPassword, setShowPassword] = useState(false);
   const [state, formAction, pending] = useActionState(signInAction, {});
+  
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [clientError, setClientError] = useState<string | null>(null);
+  const [shakeCount, setShakeCount] = useState(0);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // Memicu shake setiap kali server mengembalikan error
+  useEffect(() => {
+    if (state.error) {
+      setClientError(state.error);
+      setShakeCount((c) => c + 1);
+    }
+  }, [state.error, state]);
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    // Validasi instan sebelum ke server (menghindari popup native browser)
+    if (!email.trim()) {
+      e.preventDefault();
+      setClientError("Silakan masukkan email terlebih dahulu.");
+      setShakeCount((c) => c + 1);
+      return;
+    }
+    if (!password) {
+      e.preventDefault();
+      setClientError("Silakan masukkan kata sandi Anda.");
+      setShakeCount((c) => c + 1);
+      return;
+    }
+    // Jika valid, lanjutkan submit formAction
+  };
+
+  const handleInputChange = () => {
+    if (clientError) {
+      setClientError(null);
+    }
+  };
+
+  const activeError = clientError || state.error;
 
   return (
-    <div className="mx-auto flex w-full max-w-[30rem] flex-col">
-      <div className="mb-10 flex justify-start">
-        <BrandMark compact className="h-14 w-52" />
-      </div>
-
-      <p className="mb-5 flex items-center gap-2 text-sm font-medium text-[#4f6763]">
-        <span className="size-2 rounded-full bg-status-critical" aria-hidden="true" />
-        {systemStatusText(systemStatus)}
-      </p>
-
-      <div className="text-left">
-        <h1 className="text-balance text-3xl font-semibold tracking-[-0.04em] text-[#0a1f2d] sm:text-4xl">
-          Masuk ke SiagaKita
-        </h1>
-        <p className="mt-3 text-base leading-7 text-[#56706c]">Akses terbatas untuk petugas berwenang.</p>
-      </div>
-
-      <form action={formAction} className="mt-10 grid gap-6">
-        <div className="space-y-2">
-          <Label htmlFor="email" className="text-base font-semibold text-[#0a1f2d]">
-            Email
-          </Label>
-          <Input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="username"
-            placeholder="operator@siagakita.local"
-            className="h-14 rounded-[1.25rem] border-[#0e2b3c]/18 bg-white/80 px-5 text-base text-[#0a1f2d] shadow-[inset_0_1px_0_rgb(255_255_255/0.72),0_14px_34px_rgb(14_43_60/0.05)] placeholder:text-[#5f706d]/70 focus-visible:border-[var(--color-brand)] focus-visible:bg-white"
-            required
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="password" className="text-base font-semibold text-[#0a1f2d]">
-            Password
-          </Label>
-          <div className="relative">
-            <Input
-              id="password"
-              name="password"
-              type={showPassword ? "text" : "password"}
-              autoComplete="current-password"
-              placeholder="Masukkan kata sandi"
-              className="h-14 rounded-[1.25rem] border-[#0e2b3c]/18 bg-white/80 px-5 pr-14 text-base text-[#0a1f2d] shadow-[inset_0_1px_0_rgb(255_255_255/0.72),0_14px_34px_rgb(14_43_60/0.05)] placeholder:text-[#5f706d]/70 focus-visible:border-[var(--color-brand)] focus-visible:bg-white"
-              required
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="absolute right-2 top-2 size-10 text-[#0a1f2d]/54 hover:bg-[#0e2b3c]/8 hover:text-[#0a1f2d]"
-              onClick={() => setShowPassword((value) => !value)}
-              aria-label={showPassword ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"}
-            >
-              {showPassword ? <EyeOff /> : <Eye />}
-            </Button>
-          </div>
-        </div>
-        {state.error ? (
-          <p className="rounded-2xl border border-status-critical/35 bg-status-critical/15 px-4 py-3 text-sm leading-6 text-[var(--color-critical-deep)]">
-            {state.error}
-          </p>
-        ) : null}
-        <Button
-          type="submit"
-          className="mt-2 h-14 w-full rounded-[1.125rem] border-0 bg-[#0a1f2d] text-base font-semibold text-white shadow-[0_18px_42px_rgb(14_43_60/0.18)] hover:bg-[#14384b] focus-visible:ring-[#0a1f2d] active:translate-y-px"
-          disabled={pending}
+    <div className="w-full max-w-[23rem] sm:max-w-[25rem]">
+      <div className="mb-4 flex items-center">
+        <Link
+          href="/peta-publik"
+          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors font-medium"
         >
-          {pending ? <LoaderCircle className="animate-spin" /> : null}
-          {pending ? "Memeriksa akses..." : "Masuk ke sistem"}
-        </Button>
-      </form>
+          <ArrowLeft className="size-3.5" />
+          Kembali ke Peta Publik
+        </Link>
+      </div>
 
-      <div className="my-7 h-px bg-[#0e2b3c]/12" />
+      <Card className="border border-border/80 bg-card shadow-sm rounded-xl">
+        <CardHeader className="space-y-1.5 p-6 pb-3">
+          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">SiagaKita</span>
+          <CardTitle className="text-xl font-bold tracking-tight text-foreground font-display">
+            Masuk Petugas
+          </CardTitle>
+          <CardDescription className="text-xs text-muted-foreground leading-relaxed">
+            Masukkan email dan kata sandi untuk mengakses ruang operasi.
+          </CardDescription>
+        </CardHeader>
 
-      <Alert className="rounded-[1.25rem] border-[#0e2b3c]/14 bg-white/70 text-[#0a1f2d] shadow-[0_14px_34px_rgb(14_43_60/0.05)]">
-        <MapPinned />
-        <AlertDescription className="space-y-1 text-[#56706c]">
-          <span className="block">Ingin melihat informasi bencana tanpa masuk?</span>
-          <Link href="/peta-publik" className="inline-flex font-semibold text-[#0a1f2d] hover:underline">
-            Buka Peta Publik
-          </Link>
-        </AlertDescription>
-      </Alert>
-      {process.env.NODE_ENV === "development" ? (
-        <p className="mt-6 text-center text-xs text-[#56706c]/72">Akun pengembangan hanya untuk lingkungan lokal.</p>
-      ) : null}
+        <CardContent className="space-y-4 p-6 pt-0">
+          <form
+            ref={formRef}
+            action={formAction}
+            onSubmit={handleSubmit}
+            noValidate
+            className="space-y-3.5"
+          >
+            <InputShake trigger={shakeCount} hasError={Boolean(activeError)} onCancel={() => setClientError(null)}>
+              <div className="space-y-1.5">
+                <Label htmlFor="email" className="text-xs font-medium text-foreground">
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="username"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    handleInputChange();
+                  }}
+                  placeholder="operator@siagakita.local"
+                  className="h-10 text-[13px] font-normal placeholder:text-[13px] placeholder:font-normal placeholder:text-muted-foreground text-foreground tracking-normal font-sans rounded-md bg-background"
+                />
+              </div>
+            </InputShake>
+
+            <InputShake trigger={shakeCount} hasError={Boolean(activeError)} onCancel={() => setClientError(null)}>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password" className="text-xs font-medium text-foreground">
+                    Kata Sandi
+                  </Label>
+                </div>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      handleInputChange();
+                    }}
+                    placeholder="Masukkan kata sandi"
+                    className="h-10 pr-9 text-[13px] font-normal placeholder:text-[13px] placeholder:font-normal placeholder:text-muted-foreground text-foreground tracking-normal font-sans rounded-md bg-background"
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? "Sembunyikan sandi" : "Lihat sandi"}
+                  >
+                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
+                </div>
+              </div>
+            </InputShake>
+
+            {activeError ? (
+              <div className="text-[11.5px] text-destructive font-medium bg-destructive/10 border border-destructive/20 rounded-md p-2.5 flex items-center gap-1.5 animate-in fade-in duration-200">
+                <span>{activeError}</span>
+              </div>
+            ) : null}
+
+            <Button
+              type="submit"
+              className="w-full h-9.5 text-xs font-medium rounded-md shadow-none"
+              disabled={pending}
+            >
+              {pending ? <LoaderCircle className="size-3.5 animate-spin mr-1.5" /> : null}
+              {pending ? "Memeriksa..." : "Masuk"}
+            </Button>
+          </form>
+
+          {process.env.NODE_ENV === "development" ? (
+            <div className="pt-3 border-t border-border/60 space-y-2 text-[11px]">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span className="font-medium text-foreground/80">Akun demo lokal</span>
+                <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono">siagakita123</code>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                {demoAccounts.map((acc) => (
+                  <button
+                    key={acc.email}
+                    type="button"
+                    onClick={() => {
+                      setEmail(acc.email);
+                      setPassword("siagakita123");
+                      setClientError(null);
+                    }}
+                    className="text-left rounded border border-border/50 bg-muted/40 hover:bg-muted/80 transition-colors p-1.5 text-[10.5px] cursor-pointer"
+                  >
+                    <span className="block font-medium text-foreground">{acc.role}</span>
+                    <span className="block truncate text-muted-foreground font-mono text-[9.5px]">{acc.email}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      {/* Copyright khusus di bawah card */}
+      <p className="mt-4 text-center text-xs text-muted-foreground/80">
+        © 2026 SiagaKita
+      </p>
     </div>
   );
 }
+

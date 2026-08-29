@@ -26,7 +26,9 @@ import {
   updateDistributionStatusAction,
   updateThirdPartyAidStatus,
 } from "@/lib/actions/operations";
+import { requireProfile } from "@/lib/auth";
 import { pickLogisticsRecommendation } from "@/lib/recommendation-context";
+import { roleCapabilities } from "@/lib/role-ui";
 import { getOperationsData, type ThirdPartyAid, type WarehouseOption } from "@/lib/repositories/operations";
 
 const statusLabels = { disiapkan: "Disiapkan", "dalam-perjalanan": "Dalam perjalanan", diterima: "Diterima" };
@@ -90,6 +92,8 @@ function AidWorkflowActions({ aid, warehouses }: { aid: ThirdPartyAid; warehouse
 }
 
 export default async function LogisticsPage() {
+  const profile = await requireProfile();
+  const capabilities = roleCapabilities(profile.role);
   const { distributions, inventory, recommendations, shelters, thirdPartyAids, warehouses } = await getOperationsData();
   const availableItemTypes = inventory.filter((item) => item.stock - item.reserved > 0).length;
   const activeDistributions = distributions.filter((item) => item.status !== "diterima").length;
@@ -103,12 +107,12 @@ export default async function LogisticsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Logistik & Distribusi"
-        description="Pantau stok berjenjang, bantuan masuk, pengiriman, dan konfirmasi penerimaan dari satu alur operasional."
-        actions={
+        description={capabilities.canManageDistribution ? "Pantau stok berjenjang, bantuan masuk, pengiriman, dan konfirmasi penerimaan dari satu alur operasional." : "Konteks logistik ditampilkan terbatas sesuai kebutuhan operasional role saat ini."}
+        actions={capabilities.canManageDistribution ?
           <Dialog>
             <DialogTrigger asChild>
               <Button className="min-h-11">
-                <Plus /> Alokasikan stok
+                <Plus /> Allocate Supplies
               </Button>
             </DialogTrigger>
             <DialogContent>
@@ -156,10 +160,11 @@ export default async function LogisticsPage() {
                   <Input id="eta" name="eta" defaultValue="Hari ini 18.00 WIB" required />
                 </div>
                 <input type="hidden" name="priority" value="warning" />
-                <SubmitButton>Alokasikan</SubmitButton>
+                <SubmitButton>Allocate Supplies</SubmitButton>
               </ActionForm>
             </DialogContent>
           </Dialog>
+          : null
         }
       />
 
@@ -179,7 +184,7 @@ export default async function LogisticsPage() {
         <MetricCard label="Menunggu bantuan" value={String(pendingAids)} note="Perlu validasi dan gudang" icon={CircleDollarSign} tone={pendingAids ? "critical" : "brand"} />
       </MetricStrip>
 
-      {logisticsRecommendation ? <RecommendationCard recommendation={logisticsRecommendation} title="Saran prioritas logistik" /> : null}
+      {logisticsRecommendation ? <RecommendationCard recommendation={logisticsRecommendation} /> : null}
 
       <Tabs defaultValue="distribution" className="space-y-4">
         <TabsList className="h-auto min-h-11 flex-wrap">
@@ -209,24 +214,24 @@ export default async function LogisticsPage() {
                   <Progress value={distribution.progress} />
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <MutationAction
+                  {capabilities.canManageDistribution ? <MutationAction
                     action={updateDistributionStatusAction}
-                    label={distribution.status === "diterima" ? "Konfirmasi ulang" : "Perbarui status"}
+                    label={distribution.status === "diterima" ? "Confirm Delivery" : "Update Delivery Status"}
                     fields={{
                       code: distribution.id,
                       status: distribution.status === "diterima" ? "diterima" : "dalam-perjalanan",
                       progress: distribution.status === "diterima" ? 100 : Math.min(100, distribution.progress + 15),
                     }}
                     variant="outline"
-                  />
-                  <ConfirmMutationAction
+                  /> : null}
+                  {capabilities.canManageDistribution ? <ConfirmMutationAction
                     action={confirmDistributionReceived}
-                    label="Konfirmasi diterima"
+                    label="Confirm Delivery"
                     title={`Konfirmasi ${distribution.id} diterima?`}
                     description={`Pastikan bantuan sudah diterima oleh ${distribution.destination}.`}
                     consequence="Status distribusi menjadi diterima, stok tercatat, dan audit log menyimpan konfirmasi ini."
                     fields={{ code: distribution.id }}
-                  />
+                  /> : null}
                 </div>
               </CardContent>
             </OperationalCard>
@@ -314,7 +319,7 @@ export default async function LogisticsPage() {
                         </div>
                       </div>
                       <div className="rounded-xl bg-muted/55 p-3">
-                        <AidWorkflowActions aid={aid} warehouses={warehouses} />
+                        {capabilities.canManageDistribution ? <AidWorkflowActions aid={aid} warehouses={warehouses} /> : <p className="text-xs leading-5 text-muted-foreground">Status bantuan ditampilkan sebagai konteks. Pengelolaan distribusi dilakukan oleh gudang atau BPBD.</p>}
                       </div>
                     </div>
                   ))
@@ -330,7 +335,7 @@ export default async function LogisticsPage() {
                 <CardDescription>Data tersimpan sebagai bantuan menunggu pencocokan gudang.</CardDescription>
               </CardHeader>
               <CardContent className="pb-5">
-                <ActionForm action={createThirdPartyAid}>
+                {capabilities.canManageDistribution ? <ActionForm action={createThirdPartyAid}>
                   <div className="grid gap-2">
                     <Label htmlFor="sourceName">Sumber bantuan</Label>
                     <Input id="sourceName" name="sourceName" placeholder="Contoh: PMI Sumatera Barat" required />
@@ -350,7 +355,7 @@ export default async function LogisticsPage() {
                     </div>
                   </div>
                   <SubmitButton>Catat bantuan</SubmitButton>
-                </ActionForm>
+                </ActionForm> : <p className="text-sm leading-6 text-muted-foreground">Pencatatan dan validasi bantuan masuk dibatasi untuk BPBD dan pengelola gudang.</p>}
               </CardContent>
             </Card>
           </div>

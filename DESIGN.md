@@ -260,7 +260,7 @@ Gunakan arah rasa:
 
 ### 9.2 Typography tokens
 
-- `--font-sans: "Poppins", "Inter", "Plus Jakarta Sans", "Segoe UI", sans-serif`
+- `--font-sans: "Plus Jakarta Sans", "Inter", "Segoe UI", sans-serif`
 - `--font-mono: "JetBrains Mono", "Consolas", monospace`
 
 - `--text-display: 40px`
@@ -312,7 +312,7 @@ Gunakan arah rasa:
 ## 10. Typography Rules
 
 - Gunakan sans-serif modern yang mudah dibaca.
-- Prioritaskan **Poppins** sebagai font utama seluruh UI.
+- Prioritaskan **Plus Jakarta Sans** sebagai font utama seluruh UI.
 - Judul dashboard harus tegas dan jelas, bukan dekoratif.
 - KPI angka harus dominan, bersih, dan sangat mudah dipindai.
 - Teks tabel dan label status harus mengutamakan keterbacaan.
@@ -320,11 +320,13 @@ Gunakan arah rasa:
 
 ### Hierarchy
 
-- `Page title`: ukuran `--text-h1` atau `--text-h2`, bobot `--weight-bold`
+- `Page title`: ukuran `--text-h1` atau `--text-h2`, bobot `--weight-semibold`
 - `Section title`: ukuran `--text-h3`, bobot `--weight-semibold`
+- `KPI value`: ukuran besar sesuai konteks, bobot `--weight-semibold`; pakai `--weight-bold` hanya untuk angka prioritas tinggi.
 - `Card label`: ukuran `--text-sm`, bobot `--weight-medium`
-- `Body`: ukuran `--text-body`
-- `Micro label`: ukuran `--text-xs`
+- `Body`: ukuran `--text-body`, bobot `--weight-regular`
+- `Micro label`: ukuran `--text-xs`, bobot `--weight-medium`
+- `Primary CTA`: bobot `--weight-bold`
 
 ## 11. Layout Rules
 

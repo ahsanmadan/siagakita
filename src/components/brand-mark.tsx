@@ -7,8 +7,8 @@ export function BrandMark({ compact = false, className }: { compact?: boolean; c
       <Image
         src="/brand/logo-siagakita.png"
         alt="SiagaKita"
-        width={1386}
-        height={336}
+        width={1187}
+        height={408}
         priority
         className="h-full w-full object-contain"
       />

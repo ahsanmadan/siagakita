@@ -11,6 +11,7 @@ insert into auth.users (
   created_at,
   updated_at
 ) values
+  ('00000000-0000-4000-8000-000000000000', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'admin@siagakita.local', crypt('siagakita123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"],"app_role":"admin"}', '{}', now(), now()),
   ('00000000-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'operator@siagakita.local', crypt('siagakita123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"],"app_role":"bpbd_operator"}', '{}', now(), now()),
   ('00000000-0000-4000-8000-000000000002', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'lapangan@siagakita.local', crypt('siagakita123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"],"app_role":"field_officer"}', '{}', now(), now()),
   ('00000000-0000-4000-8000-000000000003', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'posko@siagakita.local', crypt('siagakita123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"],"app_role":"shelter_manager"}', '{}', now(), now()),
@@ -30,6 +31,7 @@ insert into auth.identities (
   created_at,
   updated_at
 ) values
+  ('10000000-0000-4000-8000-000000000000', '00000000-0000-4000-8000-000000000000', 'admin@siagakita.local', '{"sub":"00000000-0000-4000-8000-000000000000","email":"admin@siagakita.local"}', 'email', now(), now(), now()),
   ('10000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000001', 'operator@siagakita.local', '{"sub":"00000000-0000-4000-8000-000000000001","email":"operator@siagakita.local"}', 'email', now(), now(), now()),
   ('10000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000002', 'lapangan@siagakita.local', '{"sub":"00000000-0000-4000-8000-000000000002","email":"lapangan@siagakita.local"}', 'email', now(), now(), now()),
   ('10000000-0000-4000-8000-000000000003', '00000000-0000-4000-8000-000000000003', 'posko@siagakita.local', '{"sub":"00000000-0000-4000-8000-000000000003","email":"posko@siagakita.local"}', 'email', now(), now(), now()),
@@ -40,6 +42,7 @@ on conflict (provider_id, provider) do update set
   updated_at = now();
 
 insert into public.profiles (id, full_name, email, app_role) values
+  ('00000000-0000-4000-8000-000000000000', 'Admin BPBD', 'admin@siagakita.local', 'admin'),
   ('00000000-0000-4000-8000-000000000001', 'Operator BPBD', 'operator@siagakita.local', 'bpbd_operator'),
   ('00000000-0000-4000-8000-000000000002', 'Petugas Lapangan', 'lapangan@siagakita.local', 'field_officer'),
   ('00000000-0000-4000-8000-000000000003', 'Pengelola Posko', 'posko@siagakita.local', 'shelter_manager'),
@@ -54,6 +57,7 @@ insert into public.institutions (id, name, role, contact_status) values
 on conflict (id) do update set name = excluded.name, role = excluded.role, contact_status = excluded.contact_status;
 
 insert into public.user_institutions (user_id, institution_id) values
+  ('00000000-0000-4000-8000-000000000000', '20000000-0000-4000-8000-000000000001'),
   ('00000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001'),
   ('00000000-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000002'),
   ('00000000-0000-4000-8000-000000000003', '20000000-0000-4000-8000-000000000003'),

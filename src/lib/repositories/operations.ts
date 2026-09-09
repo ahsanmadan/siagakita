@@ -28,6 +28,8 @@ type EventRow = {
   summary: string;
 };
 
+type PublicEventRow = Omit<EventRow, "escalation_level" | "affected_people" | "active_shelters">;
+
 type NeedRow = {
   id: string;
   item: string;
@@ -114,6 +116,7 @@ type RecommendationRow = {
   priority: AIRecommendation["priority"];
   action: string;
   factors: string[] | null;
+  source: string | null;
 };
 
 export type ThirdPartyAid = {
@@ -132,6 +135,19 @@ export type ThirdPartyAid = {
 type ThirdPartyAidRow = Omit<ThirdPartyAid, "warehouses"> & {
   warehouses?: { name: string; level: Inventory["level"] } | { name: string; level: Inventory["level"] }[] | null;
 };
+
+const EVENT_COLUMNS =
+  "id, code, name, disaster_type, location, province, status, escalation_level, latitude, longitude, affected_people, active_shelters, summary, updated_at";
+const PUBLIC_EVENT_COLUMNS =
+  "id, code, name, disaster_type, location, province, status, latitude, longitude, summary, updated_at";
+const SHELTER_COLUMNS =
+  "id, code, name, location, event_id, status, latitude, longitude, capacity, population_total, children, elderly, pregnant, disability, last_update, disaster_events(code), needs(id, item, category, requested, available, unit, urgency)";
+const PUBLIC_SHELTER_COLUMNS = "id, code, event_id, name, location, status, latitude, longitude, last_update";
+const INVENTORY_COLUMNS = "id, item, category, stock, reserved, unit, status, warehouses(name, level)";
+const DISTRIBUTION_COLUMNS = "code, cargo_summary, eta, progress, status, institution, shelters(name), warehouses(name)";
+const REPORT_COLUMNS = "code, channel, location, reporter, received_at, summary, status, severity";
+const INSTITUTION_COLUMNS = "id, name, role, contact_status";
+const RECOMMENDATION_COLUMNS = "id, event_id, shelter_id, title, rationale, confidence, priority, action, factors, source";
 
 function relativeTime(value: string) {
   const diff = Math.max(0, Date.now() - new Date(value).getTime());
@@ -243,6 +259,7 @@ function asRecommendation(row: RecommendationRow): AIRecommendation {
     priority: row.priority,
     action: row.action,
     factors: row.factors ?? [],
+    source: row.source ?? "rule-based",
   };
 }
 
@@ -260,13 +277,13 @@ export const getOperationsData = cache(async () => {
 
   const [eventsResult, sheltersResult, inventoryResult, distributionsResult, reportsResult, institutionsResult, recommendationsResult, aidsResult, warehousesResult] =
     await Promise.all([
-      supabase.from("disaster_events").select("*").eq("state", "active").order("updated_at", { ascending: false }),
-      supabase.from("shelters").select("*, disaster_events(code), needs(*)").order("last_update", { ascending: false }),
-      supabase.from("inventory_items").select("*, warehouses(name, level)").order("created_at"),
-      supabase.from("distributions").select("*, shelters(name), warehouses(name)").order("created_at", { ascending: false }),
-      supabase.from("field_reports").select("*").order("received_at", { ascending: false }),
-      supabase.from("institutions").select("*").order("name"),
-      supabase.from("ai_recommendations").select("*").order("created_at", { ascending: false }),
+      supabase.from("disaster_events").select(EVENT_COLUMNS).eq("state", "active").order("updated_at", { ascending: false }),
+      supabase.from("shelters").select(SHELTER_COLUMNS).order("last_update", { ascending: false }),
+      supabase.from("inventory_items").select(INVENTORY_COLUMNS).order("created_at"),
+      supabase.from("distributions").select(DISTRIBUTION_COLUMNS).order("created_at", { ascending: false }),
+      supabase.from("field_reports").select(REPORT_COLUMNS).order("received_at", { ascending: false }),
+      supabase.from("institutions").select(INSTITUTION_COLUMNS).order("name"),
+      supabase.from("ai_recommendations").select(RECOMMENDATION_COLUMNS).order("created_at", { ascending: false }),
       supabase.from("third_party_aids").select("id, source_name, cargo, quantity, unit, status, warehouse_id, created_at, updated_at, warehouses(name, level)").order("created_at", { ascending: false }),
       supabase.from("warehouses").select("id, name, level").order("name"),
     ]);
@@ -275,9 +292,9 @@ export const getOperationsData = cache(async () => {
   if (firstError) throw new Error(firstError.message);
 
   const disasterEvents = ((eventsResult.data ?? []) as EventRow[]).map(asEvent);
-  const shelters = ((sheltersResult.data ?? []) as ShelterRow[]).map(asShelter);
-  const inventory = ((inventoryResult.data ?? []) as InventoryRow[]).map(asInventory);
-  const distributions = ((distributionsResult.data ?? []) as DistributionRow[]).map(asDistribution);
+  const shelters = ((sheltersResult.data ?? []) as unknown as ShelterRow[]).map(asShelter);
+  const inventory = ((inventoryResult.data ?? []) as unknown as InventoryRow[]).map(asInventory);
+  const distributions = ((distributionsResult.data ?? []) as unknown as DistributionRow[]).map(asDistribution);
   const fieldReports = ((reportsResult.data ?? []) as ReportRow[]).map(asReport);
   const institutions: Institution[] = ((institutionsResult.data ?? []) as InstitutionRow[]).map((row) => ({
     id: row.id,
@@ -311,7 +328,7 @@ export async function getEventByCode(code: string) {
   const supabase = await createSupabaseServerClient();
   const eventResult = await supabase
     .from("disaster_events")
-    .select("*")
+    .select(EVENT_COLUMNS)
     .eq("code", code)
     .single();
 
@@ -321,17 +338,17 @@ export async function getEventByCode(code: string) {
   const [sheltersResult, institutionsResult, recommendationsResult] = await Promise.all([
     supabase
       .from("shelters")
-      .select("*, disaster_events(code), needs(*)")
+      .select(SHELTER_COLUMNS)
       .eq("event_id", eventResult.data.id)
       .order("last_update", { ascending: false }),
-    supabase.from("institutions").select("*").order("name"),
-    supabase.from("ai_recommendations").select("*").order("created_at", { ascending: false }),
+    supabase.from("institutions").select(INSTITUTION_COLUMNS).order("name"),
+    supabase.from("ai_recommendations").select(RECOMMENDATION_COLUMNS).order("created_at", { ascending: false }),
   ]);
 
   const firstError = sheltersResult.error ?? institutionsResult.error ?? recommendationsResult.error;
   if (firstError) throw new Error(firstError.message);
 
-  const relatedShelters = ((sheltersResult.data ?? []) as ShelterRow[]).map(asShelter);
+  const relatedShelters = ((sheltersResult.data ?? []) as unknown as ShelterRow[]).map(asShelter);
   const institutions: Institution[] = ((institutionsResult.data ?? []) as InstitutionRow[]).map((row) => ({
     id: row.id,
     name: row.name,
@@ -341,20 +358,45 @@ export async function getEventByCode(code: string) {
   }));
   const recommendations = ((recommendationsResult.data ?? []) as RecommendationRow[]).map(asRecommendation);
 
-  return { event, relatedShelters, institutions, recommendations };
+  const shelterIds = ((sheltersResult.data ?? []) as unknown as ShelterRow[]).map((row) => row.id);
+  let relatedDistributions: Distribution[] = [];
+  if (shelterIds.length) {
+    const distributionsResult = await supabase
+      .from("distributions")
+      .select(DISTRIBUTION_COLUMNS)
+      .in("destination_shelter_id", shelterIds)
+      .order("created_at", { ascending: false });
+
+    if (distributionsResult.error) throw new Error(distributionsResult.error.message);
+    relatedDistributions = ((distributionsResult.data ?? []) as unknown as DistributionRow[]).map(asDistribution);
+  }
+
+  return { event, relatedShelters, institutions, recommendations, relatedDistributions };
 }
 
+let publicMapCache: {
+  data: { disasterEvents: DisasterEvent[]; shelters: Shelter[] };
+  timestamp: number;
+} | null = null;
+const PUBLIC_MAP_CACHE_TTL = 5 * 1000; // 5 seconds
+
 export async function getPublicMapData() {
+  const now = Date.now();
+  if (publicMapCache && now - publicMapCache.timestamp < PUBLIC_MAP_CACHE_TTL) {
+    return publicMapCache.data;
+  }
+
   let eventsResult;
   let sheltersResult;
 
   try {
     const supabase = createSupabasePublicServerClient();
     [eventsResult, sheltersResult] = await Promise.all([
-      supabase.from("public_event_summary").select("*").order("updated_at", { ascending: false }),
-      supabase.from("public_shelter_summary").select("*").order("last_update", { ascending: false }),
+      supabase.from("public_event_summary").select(PUBLIC_EVENT_COLUMNS).order("updated_at", { ascending: false }),
+      supabase.from("public_shelter_summary").select(PUBLIC_SHELTER_COLUMNS).order("last_update", { ascending: false }),
     ]);
   } catch {
+    if (publicMapCache) return publicMapCache.data;
     if (process.env.NODE_ENV === "development") {
       console.warn("Public map database source unavailable; showing public fallback data.");
     }
@@ -363,13 +405,39 @@ export async function getPublicMapData() {
 
   const firstError = eventsResult.error ?? sheltersResult.error;
   if (firstError) {
+    if (publicMapCache) return publicMapCache.data;
     if (process.env.NODE_ENV === "development") {
       console.warn("Public map database query failed; showing public fallback data.");
     }
     return { disasterEvents: [], shelters: [] };
   }
 
-  const disasterEvents = ((eventsResult.data ?? []) as EventRow[]).map(asEvent);
+  const rawEvents = ((eventsResult.data ?? []) as PublicEventRow[]);
+  const seenEventKeys = new Set<string>();
+  const uniqueEventRows: PublicEventRow[] = [];
+  for (const evt of rawEvents) {
+    const key = `${evt.name.toLowerCase().trim()}|${evt.location.toLowerCase().trim()}`;
+    if (!seenEventKeys.has(key)) {
+      seenEventKeys.add(key);
+      uniqueEventRows.push(evt);
+    }
+  }
+
+  const disasterEvents: DisasterEvent[] = uniqueEventRows.map((row) => ({
+    dbId: row.id,
+    id: row.code,
+    name: row.name,
+    type: row.disaster_type,
+    location: row.location,
+    province: row.province,
+    status: row.status,
+    escalationLevel: "Kabupaten",
+    updatedAt: relativeTime(row.updated_at),
+    coordinates: { latitude: row.latitude, longitude: row.longitude },
+    affectedPeople: 0,
+    activeShelters: 0,
+    summary: row.summary,
+  }));
   const shelterRows = (sheltersResult.data ?? []) as Pick<ShelterRow, "id" | "code" | "name" | "location" | "event_id" | "status" | "latitude" | "longitude" | "last_update">[];
   const shelters: Shelter[] = shelterRows.map((row) => ({
     dbId: row.id,
@@ -385,5 +453,7 @@ export async function getPublicMapData() {
     lastUpdate: relativeTime(row.last_update),
   }));
 
-  return { disasterEvents, shelters };
+  const result = { disasterEvents, shelters };
+  publicMapCache = { data: result, timestamp: now };
+  return result;
 }

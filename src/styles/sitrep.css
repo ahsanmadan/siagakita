@@ -1,0 +1,390 @@
+/* Laporan Situasi (SitRep) — lembar A4 untuk pratinjau layar dan cetak */
+
+.sitrep-page {
+  --sitrep-ink: #0f172a;
+  --sitrep-ink-muted: #475569;
+  --sitrep-rule: #cbd5e1;
+  --sitrep-rule-strong: #0f172a;
+  --sitrep-accent: #b91c1c;
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  padding: 14mm 15mm 16mm;
+  background: #ffffff;
+  color: var(--sitrep-ink);
+  font-size: 9.6pt;
+  line-height: 1.45;
+  box-shadow: 0 10px 30px rgb(15 23 42 / 14%);
+}
+
+.sitrep-doc {
+  display: flex;
+  flex-direction: column;
+  gap: 5mm;
+}
+
+.sitrep-kop {
+  display: flex;
+  align-items: center;
+  gap: 6mm;
+  padding-bottom: 3.5mm;
+  border-bottom: 2.5pt double var(--sitrep-rule-strong);
+}
+
+.sitrep-kop-logo {
+  height: 16mm;
+  width: 34mm;
+  flex: none;
+}
+
+.sitrep-kop-agency {
+  margin: 0;
+  font-size: 8.4pt;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sitrep-ink-muted);
+}
+
+.sitrep-kop-title {
+  margin: 0.6mm 0 0;
+  font-size: 14pt;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.sitrep-kop-meta {
+  margin: 0.8mm 0 0;
+  font-size: 8.6pt;
+  color: var(--sitrep-ink-muted);
+}
+
+.sitrep-identity {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 3mm;
+  margin: 0;
+  padding: 3mm 3.5mm;
+  border: 0.75pt solid var(--sitrep-rule);
+  background: #f8fafc;
+}
+
+.sitrep-identity dt {
+  margin: 0;
+  font-size: 7.6pt;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sitrep-ink-muted);
+}
+
+.sitrep-identity dd {
+  margin: 1mm 0 0;
+  font-size: 9pt;
+  font-weight: 600;
+}
+
+.sitrep-section > h2 {
+  margin: 0 0 2.5mm;
+  padding-bottom: 1.2mm;
+  border-bottom: 0.75pt solid var(--sitrep-rule-strong);
+  font-size: 10pt;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.sitrep-narrative {
+  margin: 2.5mm 0 0;
+  text-align: justify;
+  color: var(--sitrep-ink);
+}
+
+.sitrep-subhead {
+  margin: 0 0 1.8mm;
+  font-size: 8.2pt;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sitrep-ink-muted);
+}
+
+.sitrep-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8.6pt;
+}
+
+.sitrep-table th,
+.sitrep-table td {
+  padding: 1.6mm 2mm;
+  border: 0.5pt solid var(--sitrep-rule);
+  text-align: left;
+  vertical-align: top;
+}
+
+.sitrep-table thead th {
+  background: #eef2f7;
+  font-size: 7.8pt;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.sitrep-table-pairs th[scope="row"] {
+  width: 34mm;
+  background: #f8fafc;
+  font-weight: 600;
+}
+
+.sitrep-cell-title {
+  display: block;
+  font-weight: 600;
+}
+
+.sitrep-cell-sub {
+  display: block;
+  margin-top: 0.6mm;
+  font-size: 7.8pt;
+  color: var(--sitrep-ink-muted);
+}
+
+.sitrep-cell-mono {
+  font-family: ui-monospace, "Cascadia Code", "Courier New", monospace;
+  font-size: 8pt;
+}
+
+.sitrep-impact-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2.5mm;
+}
+
+.sitrep-impact-item {
+  padding: 2.6mm 3mm;
+  border: 0.5pt solid var(--sitrep-rule);
+  border-left: 2pt solid var(--sitrep-accent);
+  background: #fdfdfd;
+}
+
+.sitrep-impact-label {
+  margin: 0;
+  font-size: 7.6pt;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sitrep-ink-muted);
+}
+
+.sitrep-impact-value {
+  margin: 1mm 0 0;
+  font-size: 11pt;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.sitrep-impact-note {
+  margin: 0.8mm 0 0;
+  font-size: 7.8pt;
+  color: var(--sitrep-ink-muted);
+}
+
+.sitrep-map-layout {
+  display: grid;
+  grid-template-columns: 58mm minmax(0, 1fr);
+  gap: 4mm;
+  align-items: start;
+}
+
+.sitrep-map {
+  margin: 0;
+}
+
+.sitrep-map svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.sitrep-map figcaption {
+  margin-top: 1.6mm;
+  font-size: 7.4pt;
+  line-height: 1.35;
+  color: var(--sitrep-ink-muted);
+}
+
+.sitrep-two-column {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5mm;
+}
+
+.sitrep-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 1.8mm;
+}
+
+.sitrep-list li {
+  padding-bottom: 1.6mm;
+  border-bottom: 0.5pt dotted var(--sitrep-rule);
+}
+
+.sitrep-decision {
+  padding: 2.6mm 3mm;
+  border: 0.5pt solid var(--sitrep-rule);
+  background: #f8fafc;
+}
+
+.sitrep-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 62mm;
+  gap: 6mm;
+  margin-top: 2mm;
+  padding-top: 4mm;
+  border-top: 0.75pt solid var(--sitrep-rule-strong);
+}
+
+.sitrep-verify p {
+  margin: 0 0 1.2mm;
+}
+
+.sitrep-link {
+  word-break: break-all;
+}
+
+.sitrep-signature {
+  text-align: center;
+  font-size: 8.8pt;
+}
+
+.sitrep-signature p {
+  margin: 0;
+}
+
+.sitrep-signature-role {
+  margin-top: 1.2mm;
+  font-weight: 600;
+}
+
+.sitrep-signature-space {
+  height: 20mm;
+}
+
+.sitrep-signature-name {
+  padding-top: 1mm;
+  border-top: 0.5pt solid var(--sitrep-ink);
+  font-weight: 600;
+}
+
+.sitrep-copy-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Lembar A4 lebih lebar dari layar kecil: dokumen diperkecil, bukan digeser. */
+.sitrep-preview-scroll {
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 900px) {
+  .sitrep-preview-scroll .sitrep-page {
+    zoom: 0.62;
+  }
+}
+
+@media (max-width: 640px) {
+  .sitrep-preview-scroll .sitrep-page {
+    zoom: 0.42;
+  }
+}
+
+/* Cetak: hanya dokumen A4 di dalam dialog pratinjau yang ikut tercetak. */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  html,
+  body {
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+  }
+
+  /* Kromium aplikasi tidak pernah ikut tercetak. */
+  [data-slot="sidebar-container"],
+  [data-slot="sidebar-gap"],
+  [data-slot="sidebar-trigger"],
+  [data-slot="sidebar-rail"],
+  [data-slot="sidebar-inset"] > header,
+  [data-slot="dialog-overlay"],
+  [data-slot="dialog-header"],
+  [data-slot="dialog-footer"],
+  [data-slot="dialog-close"],
+  [data-slot="tooltip-content"],
+  [data-sonner-toaster],
+  .sitrep-action,
+  .maplibregl-map,
+  .map-overlay {
+    display: none !important;
+  }
+
+  /* Saat pratinjau terbuka, sisa halaman konsol disembunyikan. */
+  body:has(.sitrep-preview-dialog) > *:not(.sitrep-preview-dialog):not(:has(.sitrep-preview-dialog)) {
+    display: none !important;
+  }
+
+  .sitrep-preview-dialog {
+    position: static !important;
+    display: block !important;
+    inset: auto !important;
+    width: auto !important;
+    max-width: none !important;
+    max-height: none !important;
+    transform: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    animation: none !important;
+  }
+
+  .sitrep-preview-scroll {
+    display: block !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+  }
+
+  .sitrep-page {
+    zoom: 1 !important;
+    width: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 12mm 14mm !important;
+    box-shadow: none !important;
+    transform: none !important;
+    font-size: 9.4pt !important;
+  }
+
+  .sitrep-section,
+  .sitrep-footer,
+  .sitrep-impact-item,
+  .sitrep-table tr {
+    break-inside: avoid;
+  }
+
+  .sitrep-table thead {
+    display: table-header-group;
+  }
+}

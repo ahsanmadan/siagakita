@@ -1,5 +1,5 @@
 export type CrisisStatus = "critical" | "major" | "warning" | "safe";
-export type ReportStatus = "baru" | "diverifikasi" | "ditindaklanjuti";
+export type ReportStatus = "baru" | "diverifikasi" | "ditindaklanjuti" | "ditolak";
 export type DistributionStatus = "disiapkan" | "dalam-perjalanan" | "diterima";
 
 export interface Coordinates {
@@ -108,4 +108,5 @@ export interface AIRecommendation {
   priority: CrisisStatus;
   action: string;
   factors: string[];
+  source?: string;
 }

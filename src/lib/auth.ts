@@ -1,14 +1,9 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { AppRole, CurrentProfile } from "./auth-types";
 
-export type AppRole = "admin" | "bpbd_operator" | "field_officer" | "shelter_manager" | "warehouse_manager" | "public_viewer";
-
-export interface CurrentProfile {
-  id: string;
-  fullName: string;
-  email: string;
-  role: AppRole;
-}
+export { auth } from "./better-auth";
+export * from "./auth-types";
 
 export async function getCurrentUser() {
   const supabase = await createSupabaseServerClient();
@@ -52,14 +47,8 @@ export async function requireProfile() {
   return profile;
 }
 
-export function roleLabel(role: AppRole) {
-  const labels: Record<AppRole, string> = {
-    admin: "Administrator",
-    bpbd_operator: "Operator BPBD",
-    field_officer: "Petugas Lapangan",
-    shelter_manager: "Pengelola Posko",
-    warehouse_manager: "Pengelola Gudang",
-    public_viewer: "Publik",
-  };
-  return labels[role];
+export async function requireRole(allowedRoles: readonly AppRole[], fallback = "/dashboard") {
+  const profile = await requireProfile();
+  if (!allowedRoles.includes(profile.role)) redirect(fallback);
+  return profile;
 }

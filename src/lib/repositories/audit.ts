@@ -45,6 +45,12 @@ function summarizePayload(payload: Record<string, unknown> | null) {
   return summary || `${Object.keys(payload).length} field tercatat`;
 }
 
+function readStatus(payload: Record<string, unknown> | null) {
+  if (!payload) return null;
+  const value = payload.status;
+  return typeof value === "string" ? value : null;
+}
+
 export type AuditLogItem = {
   id: string;
   actorName: string;
@@ -55,6 +61,8 @@ export type AuditLogItem = {
   targetId: string | null;
   beforeSummary: string;
   afterSummary: string;
+  beforeStatus: string | null;
+  afterStatus: string | null;
   createdAt: string;
   createdAtIso: string;
 };
@@ -82,6 +90,8 @@ export const getAuditLogs = cache(async () => {
       targetId: row.target_id,
       beforeSummary: summarizePayload(row.before_data),
       afterSummary: summarizePayload(row.after_data),
+      beforeStatus: readStatus(row.before_data),
+      afterStatus: readStatus(row.after_data),
       createdAt: formatTime(row.created_at),
       createdAtIso: row.created_at,
     };

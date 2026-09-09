@@ -17,6 +17,7 @@ type LoginSystemStatus = {
 };
 
 const demoAccounts = [
+  { role: "Admin", email: "admin@siagakita.local" },
   { role: "BPBD", email: "operator@siagakita.local" },
   { role: "Lapangan", email: "lapangan@siagakita.local" },
   { role: "Posko", email: "posko@siagakita.local" },

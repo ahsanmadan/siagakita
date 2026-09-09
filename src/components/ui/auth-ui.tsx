@@ -17,7 +17,7 @@ export function AuthUI({
   return (
     <main
       className={cn(
-        "grid min-h-svh overflow-hidden bg-white text-foreground lg:grid-cols-[minmax(27.5rem,0.68fr)_minmax(0,1.32fr)]",
+        "grid min-h-svh overflow-hidden bg-background text-foreground lg:grid-cols-[minmax(27.5rem,0.68fr)_minmax(0,1.32fr)]",
         className,
       )}
     >
@@ -35,7 +35,7 @@ export function AuthUI({
           <img
             src="/brand/logo-siagakita.png"
             alt="Logo SiagaKita"
-            className="h-7 w-auto object-contain"
+            className="h-7 w-auto object-contain dark:invert dark:brightness-125"
           />
         </div>
 
@@ -48,8 +48,8 @@ export function AuthUI({
         </div>
       </section>
 
-      {/* Sisi Kanan: Putih Polos Bersih */}
-      <section className="relative z-10 hidden min-h-svh bg-white lg:block select-none" />
+      {/* Sisi Kanan: Area Latar Belakang */}
+      <section className="relative z-10 hidden min-h-svh bg-muted/10 lg:block select-none" />
     </main>
   );
 }

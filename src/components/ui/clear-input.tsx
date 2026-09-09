@@ -81,13 +81,6 @@ const __TRANSITION_STYLES = `
 }
 `;
 
-if (typeof document !== "undefined" && !document.getElementById("transitions-p13")) {
-  const __style = document.createElement("style");
-  __style.id = "transitions-p13";
-  __style.textContent = __TRANSITION_STYLES;
-  document.head.appendChild(__style);
-}
-
 export function ClearInput({
   value,
   onChange,
@@ -106,6 +99,15 @@ export function ClearInput({
   const fakePhRef = useRef<HTMLDivElement>(null);
   const glowRef = useRef<HTMLDivElement>(null);
   const isClearing = useRef(false);
+
+  useEffect(() => {
+    if (typeof document !== "undefined" && !document.getElementById("transitions-p13")) {
+      const styleEl = document.createElement("style");
+      styleEl.id = "transitions-p13";
+      styleEl.textContent = __TRANSITION_STYLES;
+      document.head.appendChild(styleEl);
+    }
+  }, []);
 
   useEffect(() => {
     const wrap = wrapRef.current;
@@ -197,6 +199,7 @@ export function ClearInput({
         "t-clear-container relative flex items-center h-full w-full",
         className,
       )}
+      suppressHydrationWarning
     >
       <MagnifyingGlassIcon className="size-4 shrink-0 text-muted-foreground ml-2.5 mr-2 pointer-events-none" />
       
@@ -207,14 +210,15 @@ export function ClearInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder=""
         className="w-full flex-1 bg-transparent py-1.5 pl-0 pr-8 text-[12px] text-foreground placeholder:text-muted-foreground outline-none focus:outline-none border-none shadow-none font-sans"
+        suppressHydrationWarning
         {...props}
       />
 
-      <div ref={mirrorRef} className="t-clear-mirror text-[12px] font-sans" aria-hidden="true" />
-      <div ref={fakePhRef} className="t-clear-placeholder text-[12px] text-muted-foreground font-sans" aria-hidden="true">
+      <div ref={mirrorRef} className="t-clear-mirror text-[12px] font-sans" aria-hidden="true" suppressHydrationWarning />
+      <div ref={fakePhRef} className="t-clear-placeholder text-[12px] text-muted-foreground font-sans" aria-hidden="true" suppressHydrationWarning>
         {placeholder}
       </div>
-      <div ref={glowRef} className="t-clear-glow rounded-md" aria-hidden="true" />
+      <div ref={glowRef} className="t-clear-glow rounded-md" aria-hidden="true" suppressHydrationWarning />
 
       {value ? (
         <button

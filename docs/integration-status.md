@@ -95,7 +95,13 @@ Dokumen ini menjelaskan batas integrasi SiagaKita pada tahap production-lite. Tu
 
 ---
 
-## 6. Prinsip Demo untuk KMIPN
+## 6. Rate Limiting Endpoint Publik
+
+**Status saat ini:** Aktif. GET /api/public/weather dibatasi 30 request/menit per IP dan pengiriman laporan (createReportAction) dibatasi 5 request/menit per IP; backend Upstash Redis dipakai bila UPSTASH_REDIS_REST_URL dan UPSTASH_REDIS_REST_TOKEN diisi, dan fallback sliding-window in-memory dipakai di localhost/demo tanpa konfigurasi tambahan.
+
+---
+
+## 7. Prinsip Demo untuk KMIPN
 
 1. **Kejujuran Arsitektur:** Jelaskan bahwa backend, Auth, RLS, audit log, public map, dan mutasi data adalah sistem nyata (bukan hardcoded dummy visual).
 2. **Kesiapan Fase:** Jelaskan bahwa batasan SMS Gateway dan AI eksternal sengaja diatur dalam mode aman (production-lite) untuk mematuhi regulasi privasi data kebencanaan dan meminimalkan biaya operasional awal.

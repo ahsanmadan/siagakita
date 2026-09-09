@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Poster KMIPN VIII 2026 - TwoLines - SiagaKita</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            ink:   { 900:'#0B192C', 700:'#1E3A5F', 500:'#334E6E', 300:'#7590A8', 100:'#B8CAD8', 50:'#EDF2F6' },
+            flame: { DEFAULT:'#C0351A', light:'#FBF0ED', mid:'#E8573C' },
+            paper: { DEFAULT:'#FAFBFC', warm:'#F5F7F9' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body{margin:0;padding:0;background:#0B192C;font-family:'Plus Jakarta Sans',sans-serif;color:#1E3A5F;-webkit-font-smoothing:antialiased;}
+    .poster-container{width:1200px;height:3200px;position:relative;overflow:hidden;background:#FAFBFC;display:flex;flex-direction:column;box-sizing:border-box;}
+    .paper-grid{background-size:40px 40px;background-image:linear-gradient(to right,rgba(11,25,44,.025) 1px,transparent 1px),linear-gradient(to bottom,rgba(11,25,44,.025) 1px,transparent 1px);}
+    .rule{height:1px;background:#DDE5ED;margin:0 56px;}
+    .section-num{width:28px;height:28px;border-radius:6px;background:#0B192C;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .metric-num{font-size:48px;font-weight:800;color:#0B192C;line-height:1;letter-spacing:-0.03em;}
+    .browser-frame{background:#fff;border-radius:10px;box-shadow:0 1px 3px rgba(11,25,44,.08),0 6px 20px rgba(11,25,44,.06);border:1px solid #DDE5ED;overflow:hidden;}
+    .browser-header{background:#F0F4F8;border-bottom:1px solid #DDE5ED;padding:7px 12px;display:flex;align-items:center;gap:10px;}
+    .browser-dot{width:9px;height:9px;border-radius:50%;}
+    .phone-frame{background:#0B192C;border-radius:34px;padding:9px;box-shadow:0 12px 28px rgba(11,25,44,.22);border:2px solid #2A3F58;position:relative;}
+    .phone-inner{border-radius:25px;overflow:hidden;background:#fff;}
+    .chip{display:inline-block;padding:3px 9px;border-radius:4px;font-size:10px;font-weight:600;font-family:'JetBrains Mono',monospace;background:#EDF2F6;color:#334E6E;border:1px solid #DDE5ED;}
+    .accent-top{border-top:2px solid #C0351A;}
+    .callout-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:5px;font-size:10px;font-weight:600;}
+    .flow-pill{display:inline-flex;align-items:center;padding:4px 12px;border-radius:20px;background:#EDF2F6;color:#334E6E;font-size:11px;font-weight:600;border:1px solid #DDE5ED;}
+  </style>
+</head>
+<body class="flex justify-center items-center min-h-screen py-10">
+<div id="poster-root" class="poster-container paper-grid shadow-2xl">
+
+  <!-- HEADER -->
+  <header class="w-full bg-ink-900 text-white px-14 py-6 flex items-center justify-between">
+    <div class="flex items-center space-x-4">
+      <div class="p-2 bg-white rounded-lg"><img src="./poster-assets/Logo Kampus PNP.png" alt="Logo PNP" class="h-16 w-auto object-contain"></div>
+      <div>
+        <p class="text-[11px] font-medium text-slate-300 uppercase tracking-widest">Kementerian Pendidikan, Kebudayaan, Riset, &amp; Teknologi</p>
+        <h2 class="text-xl font-bold text-white mt-0.5 tracking-tight">Politeknik Negeri Padang</h2>
+        <p class="text-[12px] font-medium text-slate-300 mt-0.5">Jurusan Teknologi Informasi Â· Prodi D4 Manajemen Informatika</p>
+      </div>
+    </div>
+    <div class="flex items-center space-x-5">
+      <div class="text-right">
+        <span class="inline-block px-3.5 py-1 rounded text-[11px] font-bold uppercase tracking-wider bg-flame text-white">Finalis Grand Final</span>
+        <p class="text-sm font-semibold text-white mt-1.5">Kategori <span class="text-amber-300 font-bold">E-Government</span></p>
+        <p class="text-[11px] text-slate-300 mt-0.5">Politeknik Negeri Ujung Pandang Â· 2026</p>
+      </div>
+      <div class="p-2 bg-white rounded-lg"><img src="./poster-assets/Logo KMIPN 2026.png" alt="Logo KMIPN 2026" class="h-16 w-auto object-contain"></div>
+    </div>
+  </header>
+  <div class="h-[3px] bg-flame w-full"></div>
+
+  <!-- HERO -->
+  <section class="px-14 pt-8 pb-7">
+    <div class="flex items-center space-x-3 mb-4">
+      <span class="px-3 py-1 rounded text-[10px] font-bold uppercase tracking-widest bg-ink-900 text-white">SI-TANGGAP KRISIS</span>
+      <span class="text-[11px] font-semibold text-ink-300 uppercase tracking-wider">Sistem Integrasi Mitigasi &amp; Alokasi Bantuan Berbasis AI</span>
+      <span class="ml-auto chip">Pilar SPBE: G2C Â· G2G Â· G2E</span>
+    </div>
+    <h1 class="text-[44px] font-extrabold text-ink-900 tracking-tight leading-[1.1]">
+      SiagaKita: Platform E-Government Tanggap Darurat Bencana &amp; Distribusi Bantuan Terpadu Berbasis Spasial
+    </h1>
+    <div class="mt-6 p-5 rounded-xl bg-paper-warm border border-ink-50 flex items-center justify-between">
+      <div class="flex items-center space-x-4">
+        <div class="w-12 h-12 rounded-xl bg-flame-light border border-flame/20 flex items-center justify-center flex-shrink-0">
+          <img src="./poster-assets/Logo SiagaKita.png" alt="Logo SiagaKita" class="h-9 w-auto object-contain">
+        </div>
+        <div>
+          <div class="flex items-center space-x-2 mb-1">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-ink-500">Tim Pengusul</span>
+            <span class="px-2 py-0.5 rounded bg-ink-900 text-white font-bold text-[11px]">TwoLines</span>
+          </div>
+          <p class="text-[13px] text-ink-500">
+            <strong class="text-ink-900 font-semibold">Ahsan Ramadan</strong> (Ketua Â· 2411081002) &nbsp;Â·&nbsp;
+            <strong class="text-ink-900 font-semibold">Jeli Mayora</strong> (2411081012) &nbsp;Â·&nbsp;
+            <strong class="text-ink-900 font-semibold">Aprilla Maulida</strong> (2411083002)
+          </p>
+        </div>
+      </div>
+      <div class="border-l border-ink-50 pl-5 text-right flex-shrink-0">
+        <p class="text-[10px] font-bold uppercase tracking-wider text-ink-300 mb-0.5">Dosen Pembimbing</p>
+        <p class="text-[14px] font-bold text-ink-900">Fazrol Rozi, B.Sc. (Hons)., M.Sc.</p>
+        <p class="text-[11px] text-ink-300">Politeknik Negeri Padang</p>
+      </div>
+    </div>
+  </section>
+  <div class="rule"></div>
+
+  <!-- 01 LATAR BELAKANG -->
+  <section class="px-14 py-9">
+    <div class="flex items-center space-x-3 mb-5">
+      <span class="section-num">01</span>
+      <h3 class="text-[16px] font-bold text-ink-900 uppercase tracking-wide">Kondisi Aktual, Data Empiris &amp; Urgensi Permasalahan</h3>
+    </div>
+    <div class="grid grid-cols-3 gap-8">
+      <div class="p-5 rounded-xl bg-white border border-ink-50 accent-top shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-flame">Urgensi Bencana</span>
+          <span class="chip">IRBI BNPB 2024</span>
+        </div>
+        <p class="metric-num">92.4%</p>
+        <h4 class="text-[13px] font-semibold text-ink-700 mt-2">Dominasi Bencana Hidrometeorologi Basah</h4>
+        <p class="text-[11px] text-ink-300 mt-2 leading-relaxed">Kecepatan penanganan pada <strong class="text-ink-500">72 Jam Pertama (Golden Hours)</strong> menentukan keselamatan jiwa, namun terhambat laporan manual yang terlambat dan terfragmentasi.</p>
+      </div>
+      <div class="p-5 rounded-xl bg-white border border-ink-50 accent-top shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-flame">Kesenjangan Akses</span>
+          <span class="chip">BPS &amp; Komdigi 2025</span>
+        </div>
+        <p class="metric-num">2.500+</p>
+        <h4 class="text-[13px] font-semibold text-ink-700 mt-2">Desa Rawan Belum Terkoneksi Internet Stabil</h4>
+        <p class="text-[11px] text-ink-300 mt-2 leading-relaxed">Infrastruktur listrik &amp; data sering lumpuh total saat bencana. Sistem yang 100% berbasis internet tidak dapat beroperasi di zona terisolasi.</p>
+      </div>
+      <div class="p-5 rounded-xl bg-white border border-ink-50 accent-top shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-flame">Risiko Logistik</span>
+          <span class="chip">Evaluasi Lapangan</span>
+        </div>
+        <p class="metric-num">68%</p>
+        <h4 class="text-[13px] font-semibold text-ink-700 mt-2">Kesenjangan Alokasi (Supply Mismatch)</h4>
+        <p class="text-[11px] text-ink-300 mt-2 leading-relaxed">Terjadi penumpukan bantuan di satu titik, sementara kebutuhan vital kelompok rentan di posko terpencil tidak terdata secara presisi.</p>
+      </div>
+    </div>
+  </section>
+  <div class="rule"></div>
+
+  <!-- 02 EKOSISTEM -->
+  <section class="px-14 py-9 bg-paper-warm">
+    <div class="flex items-center justify-between mb-5">
+      <div class="flex items-center space-x-3">
+        <span class="section-num">02</span>
+        <h3 class="text-[16px] font-bold text-ink-900 uppercase tracking-wide">Arsitektur Ekosistem E-Government (G2C Â· G2G Â· G2E)</h3>
+      </div>
+      <span class="chip">Kategori E-Government KMIPN</span>
+    </div>
+    <div class="grid grid-cols-4 gap-6">
+      <div class="bg-white p-5 rounded-xl border border-ink-50 shadow-sm">
+        <div class="flex items-center space-x-2 text-ink-500 mb-3">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+          <span class="text-[10px] font-bold uppercase tracking-wider">G2C Â· Warga</span>
+        </div>
+        <h4 class="text-[14px] font-bold text-ink-900 mb-2">Portal Keselamatan Publik</h4>
+        <p class="text-[11px] text-ink-300 leading-relaxed mb-3">Akses peta evakuasi terdekat, status wilayah aman, kontak darurat, dan pelaporan dua arah (Web &amp; SMS).</p>
+        <p class="text-[10px] font-semibold text-flame">Zero PII Leak</p>
+      </div>
+      <div class="bg-white p-5 rounded-xl border border-ink-50 shadow-sm">
+        <div class="flex items-center space-x-2 text-ink-500 mb-3">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+          <span class="text-[10px] font-bold uppercase tracking-wider">G2G Â· BPBD</span>
+        </div>
+        <h4 class="text-[14px] font-bold text-ink-900 mb-2">Pusat Kendali Tanggap Krisis</h4>
+        <p class="text-[11px] text-ink-300 leading-relaxed mb-3">Pemantauan spasial terpadu, triage laporan warga, eskalasi insiden, dan integrasi lintas lembaga (SAR, TNI, Pemda).</p>
+        <p class="text-[10px] font-semibold text-flame">Eskalasi Cepat &amp; Validasi Spasial</p>
+      </div>
+      <div class="bg-white p-5 rounded-xl border border-ink-50 shadow-sm">
+        <div class="flex items-center space-x-2 text-ink-500 mb-3">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+          <span class="text-[10px] font-bold uppercase tracking-wider">G2E Â· Petugas Posko</span>
+        </div>
+        <h4 class="text-[14px] font-bold text-ink-900 mb-2">Manajemen Posko &amp; Rentan</h4>
+        <p class="text-[11px] text-ink-300 leading-relaxed mb-3">Pendataan digital pengungsi, bayi, lansia, disabilitas, serta kalkulasi otomatis pemenuhan kebutuhan dasar posko.</p>
+        <p class="text-[10px] font-semibold text-flame">Standar Perka BNPB No. 18/2014</p>
+      </div>
+      <div class="bg-white p-5 rounded-xl border border-ink-50 shadow-sm">
+        <div class="flex items-center space-x-2 text-ink-500 mb-3">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"></path></svg>
+          <span class="text-[10px] font-bold uppercase tracking-wider">G2G Â· Rantai Pasok</span>
+        </div>
+        <h4 class="text-[14px] font-bold text-ink-900 mb-2">Distribusi &amp; Audit Trail</h4>
+        <p class="text-[11px] text-ink-300 leading-relaxed mb-3">Penyaluran dari gudang ke posko dengan manifest digital, verifikasi penerimaan, dan transparansi publik.</p>
+        <p class="text-[10px] font-semibold text-flame">Keterlacakan 100% Akuntabel</p>
+      </div>
+    </div>
+    <div class="mt-4 flex items-center space-x-2 flex-wrap gap-y-2">
+      <span class="text-[11px] font-bold text-ink-500 mr-1">Alur Komando:</span>
+      <span class="flow-pill">1 Â· Laporan Masuk (Web/SMS)</span>
+      <span class="text-ink-100 text-sm mx-1">â€º</span>
+      <span class="flow-pill">2 Â· Triage &amp; Validasi BPBD</span>
+      <span class="text-ink-100 text-sm mx-1">â€º</span>
+      <span class="flow-pill">3 Â· Agregasi Kebutuhan Posko</span>
+      <span class="text-ink-100 text-sm mx-1">â€º</span>
+      <span class="flow-pill">4 Â· Pengiriman &amp; Konfirmasi</span>
+    </div>
+  </section>
+  <div class="rule"></div>
+
+  <!-- 03 INOVASI -->
+  <section class="px-14 py-9">
+    <div class="flex items-center space-x-3 mb-5">
+      <span class="section-num">03</span>
+      <h3 class="text-[16px] font-bold text-ink-900 uppercase tracking-wide">Tiga Inovasi &amp; Diferensiasi Teknologi Unggulan</h3>
+    </div>
+    <div class="grid grid-cols-3 gap-8">
+      <div class="p-5 rounded-xl border border-ink-50 bg-white shadow-sm">
+        <div class="w-9 h-9 rounded-lg bg-ink-50 text-ink-500 flex items-center justify-center mb-4">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"></path></svg>
+        </div>
+        <h4 class="text-[14px] font-bold text-ink-900">Zero-Grid SMS Reporting</h4>
+        <p class="text-[11px] text-ink-300 mt-1.5 leading-relaxed">Mekanisme pelaporan alternatif saat jaringan internet padam. Parser cerdas format teks terstruktur:</p>
+        <div class="mt-3 p-2.5 rounded-lg bg-ink-900 font-mono text-[10px] text-amber-300 tracking-wide">LAPOR#POSKO_02#BALITA_MEDIS#50#KETERANGAN</div>
+        <p class="text-[10px] text-ink-300 mt-2 leading-relaxed">Otomatis terkonversi menjadi titik insiden spasial pada peta kendali BPBD via webhook gateway.</p>
+      </div>
+      <div class="p-5 rounded-xl border border-ink-50 bg-white shadow-sm">
+        <div class="w-9 h-9 rounded-lg bg-ink-50 text-ink-500 flex items-center justify-center mb-4">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+        </div>
+        <h4 class="text-[14px] font-bold text-ink-900">AI Decision Support Engine</h4>
+        <p class="text-[11px] text-ink-300 mt-1.5 leading-relaxed">Menganalisis rasio keterdesakan posko berdasarkan demografi pengungsi, jarak pasokan, dan stok kritis:</p>
+        <div class="mt-3 p-2.5 rounded-lg bg-paper-warm border border-ink-50 font-mono text-[10px] text-ink-700 flex items-center justify-between">
+          <span>Algoritma Hibrida Prioritas</span>
+          <span class="font-bold text-flame">94.8% Conf.</span>
+        </div>
+        <p class="text-[10px] text-ink-300 mt-2 leading-relaxed">Memberikan rekomendasi urutan alokasi bantuan secara objektif tanpa mengambil alih otoritas komandan operasi.</p>
+      </div>
+      <div class="p-5 rounded-xl border border-ink-50 bg-white shadow-sm">
+        <div class="w-9 h-9 rounded-lg bg-ink-50 text-ink-500 flex items-center justify-center mb-4">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+        </div>
+        <h4 class="text-[14px] font-bold text-ink-900">Kalkulasi Standar BNPB &amp; SPHERE</h4>
+        <p class="text-[11px] text-ink-300 mt-1.5 leading-relaxed">Menghitung kuantitas beras, air bersih, sanitasi, dan gizi balita berbasis regulasi resmi:</p>
+        <div class="mt-3 p-2.5 rounded-lg bg-paper-warm border border-ink-50 font-mono text-[10px] text-ink-700 font-semibold">Perka BNPB No. 18/2014 &amp; SPHERE Project</div>
+        <p class="text-[10px] text-ink-300 mt-2 leading-relaxed">Dilengkapi immutable audit trail untuk menjamin akuntabilitas penyaluran bantuan pemerintah.</p>
+      </div>
+    </div>
+  </section>
+  <div class="rule"></div>
+
+  <!-- 04 SHOWCASE -->
+  <section class="px-14 py-7 bg-paper-warm flex-1">
+    <div class="flex items-center justify-between mb-5">
+      <div class="flex items-center space-x-3">
+        <span class="section-num">04</span>
+        <h3 class="text-[16px] font-bold text-ink-900 uppercase tracking-wide">Implementasi Prototipe Fungsional SiagaKita</h3>
+      </div>
+      <span class="chip">Next.js 16 Â· PostgreSQL Â· MapLibre GL</span>
+    </div>
+    <div class="grid grid-cols-12 gap-8">
+      <div class="col-span-8 flex flex-col space-y-5">
+        <div class="browser-frame">
+          <div class="browser-header">
+            <div class="flex space-x-1.5">
+              <span class="browser-dot bg-red-300"></span>
+              <span class="browser-dot bg-amber-300"></span>
+              <span class="browser-dot bg-emerald-300"></span>
+            </div>
+            <div class="flex-1 max-w-md mx-auto bg-white px-3 py-1 rounded text-[10px] font-mono text-ink-300 border border-ink-50 flex items-center justify-between">
+              <span class="flex items-center gap-1.5">
+                <svg class="w-2.5 h-2.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                https://siagakita.pnp.ac.id/command-center
+              </span>
+              <span class="text-[9px] px-1.5 rounded bg-ink-50 text-ink-300 font-semibold">BPBD OPERATOR</span>
+            </div>
+          </div>
+          <div class="relative">
+            <img src="./poster-assets/mockups/dashboard-desktop.png" alt="Dashboard Command Center SiagaKita" class="w-full h-auto object-cover">
+            <div class="absolute top-4 left-4 callout-badge bg-ink-900 text-white">
+              <span class="w-1.5 h-1.5 rounded-full bg-flame animate-ping"></span>
+              Pusat Kendali Spasial Real-Time
+            </div>
+            <div class="absolute bottom-4 right-4 callout-badge bg-white text-ink-700 border border-ink-50">
+              <svg class="w-3 h-3 text-flame" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+              Triage &amp; Verifikasi Lapangan
+            </div>
+          </div>
+          <div class="p-3 bg-white border-t border-ink-50 flex items-center justify-between text-[11px] text-ink-300">
+            <span class="font-bold text-ink-700">Command Center:</span>
+            <span>Radius dampak krisis, status kesiapan posko, dan agregasi stok logistik darurat.</span>
+          </div>
+        </div>
+        <div class="browser-frame">
+          <div class="browser-header">
+            <div class="flex space-x-1.5">
+              <span class="browser-dot bg-red-300"></span>
+              <span class="browser-dot bg-amber-300"></span>
+              <span class="browser-dot bg-emerald-300"></span>
+            </div>
+            <div class="flex-1 max-w-md mx-auto bg-white px-3 py-1 rounded text-[10px] font-mono text-ink-300 border border-ink-50">
+              https://siagakita.pnp.ac.id/posko/sensus-kelompok-rentan
+            </div>
+          </div>
+          <div class="relative">
+            <img src="./poster-assets/mockups/posko-desktop.png" alt="Manajemen Posko SiagaKita" class="w-full h-auto object-cover">
+            <div class="absolute top-3 right-3 callout-badge bg-ink-900 text-white">Sensus Terpilah: Balita Â· Lansia Â· Ibu Hamil Â· Disabilitas</div>
+          </div>
+          <div class="p-3 bg-white border-t border-ink-50 flex items-center justify-between text-[11px] text-ink-300">
+            <span class="font-bold text-ink-700">Manajemen Posko Lapangan:</span>
+            <span>Bantuan khusus kelompok rentan tidak terlewatkan dalam kalkulasi logistik.</span>
+          </div>
+        </div>
+      </div>
+      <div class="col-span-4 flex flex-col space-y-5">
+        <div class="bg-white p-4 rounded-xl border border-ink-50 shadow-sm flex flex-col items-center">
+          <div class="w-full flex items-center justify-between pb-3 border-b border-ink-50 mb-4">
+            <span class="text-[11px] font-bold uppercase text-ink-700">Portal Publik Warga</span>
+            <span class="chip">G2C Â· Mobile</span>
+          </div>
+          <div class="phone-frame w-60">
+            <div class="absolute top-3 left-1/2 -translate-x-1/2 w-16 h-3.5 bg-ink-900 rounded-full z-20"></div>
+            <div class="phone-inner pt-5">
+              <img src="./poster-assets/mockups/peta-publik-mobile.png" alt="Peta Publik Mobile SiagaKita" class="w-full h-auto object-cover">
+            </div>
+          </div>
+          <div class="mt-4 w-full">
+            <p class="text-[11px] font-bold text-ink-900 mb-2">Fitur Utama Masyarakat:</p>
+            <ul class="space-y-1.5">
+              <li class="flex items-start gap-1.5 text-[11px] text-ink-300"><svg class="w-3 h-3 text-flame mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>Deteksi titik posko &amp; rute evakuasi aman</li>
+              <li class="flex items-start gap-1.5 text-[11px] text-ink-300"><svg class="w-3 h-3 text-flame mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>Pelaporan darurat instan berbasis koordinat</li>
+              <li class="flex items-start gap-1.5 text-[11px] text-ink-300"><svg class="w-3 h-3 text-flame mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>Informasi agregat tanpa membuka data korban</li>
+            </ul>
+          </div>
+        </div>
+        <div class="browser-frame">
+          <div class="browser-header">
+            <div class="flex space-x-1.5">
+              <span class="browser-dot bg-red-300"></span>
+              <span class="browser-dot bg-amber-300"></span>
+              <span class="browser-dot bg-emerald-300"></span>
+            </div>
+            <div class="flex-1 bg-white px-2 py-0.5 rounded text-[10px] font-mono text-ink-300">.../logistik/distribusi</div>
+          </div>
+          <img src="./poster-assets/mockups/logistik-desktop.png" alt="Logistik SiagaKita" class="w-full h-auto object-cover">
+          <div class="p-2.5 bg-white border-t border-ink-50 text-[10px] text-ink-300">
+            <strong class="text-ink-700 font-semibold">Gudang &amp; Rantai Pasok:</strong> Pelacakan distribusi dan mutasi stok bantuan secara transparan.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <div class="rule"></div>
+
+  <!-- 05 DAMPAK -->
+  <section class="px-14 py-9">
+    <div class="flex items-center space-x-3 mb-5">
+      <span class="section-num">05</span>
+      <h3 class="text-[16px] font-bold text-ink-900 uppercase tracking-wide">Kemanfaatan Nyata, Efisiensi &amp; Kesiapan Integrasi SPBE</h3>
+    </div>
+    <div class="grid grid-cols-4 gap-0 divide-x divide-ink-50 p-6 rounded-xl bg-paper-warm border border-ink-50">
+      <div class="pr-6 text-center">
+        <p class="text-[10px] font-bold uppercase tracking-wider text-ink-300 mb-1">Efisiensi Respon</p>
+        <p class="metric-num">75%</p>
+        <p class="text-[12px] font-semibold text-ink-700 mt-1.5">Waktu Validasi Terpangkas</p>
+        <p class="text-[10px] text-ink-300 mt-1 leading-snug">Menghilangkan verifikasi manual bertingkat saat fase tanggap darurat.</p>
+      </div>
+      <div class="px-6 text-center">
+        <p class="text-[10px] font-bold uppercase tracking-wider text-ink-300 mb-1">Akurasi Distribusi</p>
+        <p class="metric-num">0%</p>
+        <p class="text-[12px] font-semibold text-ink-700 mt-1.5">Stok Bantuan Mismatch</p>
+        <p class="text-[10px] text-ink-300 mt-1 leading-snug">Kebutuhan logistik dihitung otomatis berbasis populasi riil pengungsi.</p>
+      </div>
+      <div class="px-6 text-center">
+        <p class="text-[10px] font-bold uppercase tracking-wider text-ink-300 mb-1">Ketahanan Wilayah</p>
+        <p class="metric-num">100%</p>
+        <p class="text-[12px] font-semibold text-ink-700 mt-1.5">Ketercakupan Laporan</p>
+        <p class="text-[10px] text-ink-300 mt-1 leading-snug">Jaminan penerimaan laporan saat infrastruktur internet putus total.</p>
+      </div>
+      <div class="pl-6 text-center">
+        <p class="text-[10px] font-bold uppercase tracking-wider text-ink-300 mb-1">Standarisasi Nasional</p>
+        <p class="metric-num text-flame">SPBE</p>
+        <p class="text-[12px] font-semibold text-ink-700 mt-1.5">Satu Data Indonesia</p>
+        <p class="text-[10px] text-ink-300 mt-1 leading-snug">Arsitektur API-first siap dihubungkan ke portal BPBD &amp; Satu Data Bencana.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="w-full bg-ink-900 text-white px-14 py-6 mt-auto flex items-center justify-between border-t-2 border-flame">
+    <div class="flex items-center space-x-5">
+      <div class="p-2 bg-white rounded-lg">
+        <svg class="w-16 h-16" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="100" height="100" fill="white"/>
+          <path d="M10 10H34V34H10V10Z" fill="#0B192C"/><path d="M14 14H30V30H14V14Z" fill="white"/><path d="M18 18H26V26H18V18Z" fill="#0B192C"/>
+          <path d="M66 10H90V34H66V10Z" fill="#0B192C"/><path d="M70 14H86V30H70V14Z" fill="white"/><path d="M74 18H82V26H74V18Z" fill="#0B192C"/>
+          <path d="M10 66H34V90H10V66Z" fill="#0B192C"/><path d="M14 70H30V86H14V70Z" fill="white"/><path d="M18 74H26V82H18V74Z" fill="#0B192C"/>
+          <rect x="42" y="10" width="6" height="6" fill="#0B192C"/><rect x="52" y="10" width="6" height="6" fill="#0B192C"/>
+          <rect x="42" y="22" width="6" height="6" fill="#0B192C"/><rect x="52" y="28" width="6" height="6" fill="#0B192C"/>
+          <rect x="10" y="42" width="6" height="6" fill="#0B192C"/><rect x="22" y="42" width="6" height="6" fill="#0B192C"/>
+          <rect x="42" y="42" width="16" height="16" fill="#0B192C"/><rect x="46" y="46" width="8" height="8" fill="white"/>
+          <rect x="66" y="42" width="6" height="6" fill="#0B192C"/><rect x="80" y="46" width="6" height="6" fill="#0B192C"/>
+          <rect x="42" y="66" width="6" height="6" fill="#0B192C"/><rect x="52" y="76" width="6" height="6" fill="#0B192C"/>
+          <rect x="66" y="66" width="12" height="6" fill="#0B192C"/><rect x="82" y="74" width="6" height="12" fill="#0B192C"/>
+        </svg>
+      </div>
+      <div>
+        <span class="inline-block px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-flame text-white mb-1.5">Uji Coba Langsung Prototipe</span>
+        <p class="text-[13px] font-semibold text-white">Pindai QR Code untuk Mengakses Live Demo</p>
+        <p class="text-[11px] text-slate-400 mt-0.5">Dokumentasi API, Arsitektur Sistem &amp; Panduan Fungsionalitas</p>
+      </div>
+    </div>
+    <div class="text-right">
+      <p class="text-[11px] font-bold text-slate-200 uppercase tracking-wider">Kompetisi Mahasiswa Informatika Politeknik Nasional (KMIPN VIII 2026)</p>
+      <p class="text-[10px] text-slate-400 mt-1">Tuan Rumah: Politeknik Negeri Ujung Pandang &nbsp;Â·&nbsp; Pengusul: Politeknik Negeri Padang</p>
+      <p class="text-[10px] font-mono text-slate-500 mt-1">Karya Orisinal Kategori E-Government &nbsp;Â·&nbsp; Hak Cipta &copy; 2026 Tim TwoLines</p>
+    </div>
+  </footer>
+
+</div>
+</body>
+</html>

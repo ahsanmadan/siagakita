@@ -3,7 +3,9 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { MutationAction } from "@/components/mutation-action";
 import { Button } from "@/components/ui/button";
+import type { ActionButtonSize, ActionButtonVariant } from "@/components/submit-button";
 import type { ActionResult } from "@/lib/action-state";
+import { cn } from "@/lib/utils";
 
 export function ConfirmMutationAction({
   action,
@@ -13,6 +15,9 @@ export function ConfirmMutationAction({
   consequence = "Aksi ini akan menyimpan perubahan ke database dan menulis audit log.",
   fields,
   variant = "default",
+  size = "default",
+  icon,
+  triggerClassName,
 }: {
   action: (formData: FormData) => Promise<ActionResult>;
   label: string;
@@ -20,12 +25,25 @@ export function ConfirmMutationAction({
   description: string;
   consequence?: string;
   fields: Record<string, string | number>;
-  variant?: "default" | "outline" | "secondary" | "ghost";
+  variant?: ActionButtonVariant;
+  size?: ActionButtonSize;
+  icon?: React.ReactNode;
+  triggerClassName?: string;
 }) {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button type="button" variant={variant} className="min-h-11 whitespace-nowrap">
+        <Button
+          type="button"
+          variant={variant}
+          size={size}
+          className={cn(
+            "whitespace-nowrap",
+            size === "default" || size === "lg" ? "min-h-11" : null,
+            triggerClassName,
+          )}
+        >
+          {icon}
           {label}
         </Button>
       </DialogTrigger>

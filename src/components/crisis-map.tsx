@@ -8,6 +8,29 @@ import { StatusBadge } from "@/components/status-badge";
 import { cn } from "@/lib/utils";
 import type { CrisisStatus } from "@/lib/types";
 
+export interface VolcanoCctv {
+  locationName: string;
+  label: string;
+  imageUrl: string;
+}
+
+export interface VolcanoObservationReport {
+  period?: string;
+  volcanoName?: string;
+  author?: string;
+  visualSummary?: string;
+  detailUrl?: string;
+}
+
+export interface VolcanoEruptionReport {
+  time: string;
+  volcanoName: string;
+  author: string;
+  description: string;
+  imageUrl?: string;
+  detailUrl?: string;
+}
+
 export interface MapPoint {
   id: string;
   name: string;
@@ -15,9 +38,21 @@ export interface MapPoint {
   latitude: number;
   longitude: number;
   status: CrisisStatus;
-  kind: "Kejadian" | "Posko" | "Gempa" | "Critical Need" | "Distribution";
+  kind: "Kejadian" | "Posko" | "Gempa" | "Gunung Api" | "Critical Need" | "Distribution";
+  isErupting?: boolean;
+  eruptionReport?: VolcanoEruptionReport;
+  observationReport?: VolcanoObservationReport;
+  cctvList?: VolcanoCctv[];
+  hasCctv?: boolean;
+  cctvCount?: number;
+  shakemapUrl?: string;
+  magnitude?: string;
+  depth?: string;
+  feltScale?: string;
+  tsunamiPotential?: string;
   detail: string;
   updatedAt?: string;
+  timestampMs?: number;
   source?: string;
   sourceUrl?: string;
 }
@@ -67,7 +102,7 @@ type GeoJsonSetDataSource = {
   setData: (data: OperationalGeoJson) => void;
 };
 
-const incidentKinds = new Set<MapPoint["kind"]>(["Kejadian", "Gempa"]);
+const incidentKinds = new Set<MapPoint["kind"]>(["Kejadian", "Gempa", "Gunung Api"]);
 const incidentFocusRadius = 1.35;
 const singlePointFocusRadius = 0.18;
 const operationalMaxZoom = 10.5;
@@ -78,6 +113,7 @@ const locationNoticeMessage = "SiagaKita belum memiliki izin untuk menggunakan l
 
 const markerLegend = [
   { label: "Incident", kind: "Kejadian" as const, icon: ActivityLogIcon, tone: "bg-status-critical text-white" },
+  { label: "Volcano", kind: "Gunung Api" as const, icon: ActivityLogIcon, tone: "bg-orange-600 text-white" },
   { label: "Shelter", kind: "Posko" as const, icon: HomeIcon, tone: "bg-primary text-primary-foreground" },
   { label: "Critical Need", kind: "Critical Need" as const, icon: BoxIcon, tone: "bg-status-warning text-foreground" },
   { label: "Distribution", kind: "Distribution" as const, icon: CheckCircledIcon, tone: "bg-status-info text-white" },
@@ -91,6 +127,10 @@ function markerIconSvg(kind: MapPoint["kind"]) {
   if (kind === "Gempa") {
     // Epicenter / Seismic pulse clean glyph
     return '<svg class="crisis-marker-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m12.72-4.24a12 12 0 0 1 0 16.97m-16.96 0a12 12 0 0 1 0-16.97"/></svg>';
+  }
+  if (kind === "Gunung Api") {
+    // Volcano mountain with crater and magma glyph
+    return '<svg class="crisis-marker-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2 21 7-13 3 5 3-5 7 13H2Z"/><path d="M8.5 12h7"/><circle cx="12" cy="4" r="1.5" fill="currentColor"/></svg>';
   }
   if (kind === "Critical Need") {
     // Warning triangle clean glyph
@@ -224,6 +264,7 @@ function boundsForPoints(points: MapPoint[], mode: CameraFocusMode = "operationa
 
 function markerKindLabel(kind: MapPoint["kind"]) {
   if (kind === "Kejadian" || kind === "Gempa") return "Incident";
+  if (kind === "Gunung Api") return "Volcano";
   if (kind === "Posko") return "Shelter";
   return kind;
 }
@@ -334,14 +375,34 @@ function syncOperationalLayers(map: MapLibreMap, points: MapPoint[]) {
       id: "siagakita-incident-radius",
       type: "circle",
       source: operationalSourceId,
-      filter: ["in", ["get", "kind"], ["literal", ["Kejadian", "Gempa"]]],
+      filter: [
+        "all",
+        ["in", ["get", "kind"], ["literal", ["Kejadian", "Gunung Api"]]],
+        ["!=", ["get", "status"], "safe"],
+      ],
       paint: {
         "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 22, 9, 54, 12, 92],
-        "circle-color": "#d9534f",
-        "circle-opacity": 0.13,
-        "circle-stroke-color": "#b7292d",
-        "circle-stroke-opacity": 0.36,
-        "circle-stroke-width": 1.5,
+        "circle-color": [
+          "match",
+          ["get", "status"],
+          "critical", "#dc2626",
+          "major", "#ea580c",
+          "warning", "#eab308",
+          "safe", "#059669",
+          "#dc2626",
+        ],
+        "circle-opacity": 0.09,
+        "circle-stroke-color": [
+          "match",
+          ["get", "status"],
+          "critical", "#b91c1c",
+          "major", "#c2410c",
+          "warning", "#ca8a04",
+          "safe", "#047857",
+          "#b91c1c",
+        ],
+        "circle-stroke-opacity": 0.28,
+        "circle-stroke-width": 1.25,
       },
     });
   }
@@ -382,7 +443,7 @@ function popupNodeForPoint(point: MapPoint, publicMode: boolean) {
   location.textContent = point.location;
   const detail = document.createElement("p");
   detail.className = "mt-2 text-xs leading-5";
-  detail.textContent = publicMode ? "Info aman untuk warga." : point.detail;
+  detail.textContent = publicMode ? (point.kind === "Gunung Api" || point.kind === "Gempa" ? point.detail : "Info aman untuk warga.") : point.detail;
   const updated = document.createElement("p");
   updated.className = "mt-2 text-xs opacity-60";
   updated.textContent = point.updatedAt
@@ -390,7 +451,26 @@ function popupNodeForPoint(point: MapPoint, publicMode: boolean) {
     : point.source
       ? `Sumber ${point.source}`
       : "";
-  popupNode.append(title, meta, location, detail);
+  popupNode.append(title, meta, location);
+
+  if (point.kind === "Gunung Api") {
+    const visualUrl = point.eruptionReport?.imageUrl || point.cctvList?.[0]?.imageUrl;
+    if (visualUrl) {
+      const img = document.createElement("img");
+      img.src = visualUrl;
+      img.alt = point.name;
+      img.className = "mt-2 w-full h-24 object-cover rounded border border-neutral-200 dark:border-neutral-700";
+      popupNode.append(img);
+    }
+  } else if (point.kind === "Gempa" && point.shakemapUrl) {
+    const img = document.createElement("img");
+    img.src = point.shakemapUrl;
+    img.alt = `Peta Guncangan ${point.name}`;
+    img.className = "mt-2 w-full h-28 object-cover rounded border border-neutral-200 dark:border-neutral-700";
+    popupNode.append(img);
+  }
+
+  popupNode.append(detail);
   if (updated.textContent) popupNode.append(updated);
   return popupNode;
 }
@@ -399,7 +479,7 @@ function focusMapPoint(map: MapLibreMap, point: MapPoint, publicMode: boolean) {
   const currentZoom = map.getZoom();
   const targetZoom = point.kind === "Posko"
     ? 13.4
-    : point.kind === "Kejadian" || point.kind === "Gempa"
+    : point.kind === "Kejadian" || point.kind === "Gempa" || point.kind === "Gunung Api"
       ? 12.35
       : 13;
   const nextZoom = Math.min(Math.max(currentZoom, targetZoom), 15);
@@ -414,6 +494,37 @@ function focusMapPoint(map: MapLibreMap, point: MapPoint, publicMode: boolean) {
     easing: (time) => 1 - Math.pow(1 - time, 3),
     essential: false,
   });
+}
+
+export function getVolcanoLevel(point: MapPoint): number {
+  const text = `${point.name} ${point.detail ?? ""}`;
+  if (/Level\s+IV|Awas/i.test(text)) return 4;
+  if (/Level\s+III|Siaga/i.test(text)) return 3;
+  if (/Level\s+II|Waspada/i.test(text)) return 2;
+  if (/Level\s+I|Normal/i.test(text)) return 1;
+
+  if (point.status === "critical") return 4;
+  if (point.status === "major") return 3;
+  if (point.status === "warning") return 2;
+  return 1;
+}
+
+function resolveEarthquakeIcon(point: MapPoint, isLatest?: boolean): { iconUrl: string; isFelt: boolean; isLatest: boolean } {
+  const text = `${point.name} ${point.detail ?? ""}`;
+  const isFelt = point.status === "critical" || point.status === "major" || /dirasakan|merusak|tsunami|mmi/i.test(text);
+  const iconUrl = isFelt ? "/icons/earthquake/gb-t.png" : "/icons/earthquake/gb.png";
+  return { iconUrl, isFelt, isLatest: Boolean(isLatest) };
+}
+
+function resolveVolcanoIcon(point: MapPoint): { iconUrl: string; isErupting: boolean; level: number } {
+  const level = getVolcanoLevel(point);
+  const text = `${point.name} ${point.detail ?? ""}`;
+  const isErupting = typeof point.isErupting === "boolean"
+    ? point.isErupting
+    : /erupsi|letusan|awan panas|lontaran material|kolom abu/i.test(text);
+
+  const iconUrl = isErupting ? `/icons/volcano/erupt${level}.gif` : `/icons/volcano/${level}.png`;
+  return { iconUrl, isErupting, level };
 }
 
 function shouldUseMapPopup(publicMode: boolean) {
@@ -437,6 +548,10 @@ function syncMarkers(
     }
   });
 
+  const latestEarthquakeId = points
+    .filter((p) => p.kind === "Gempa")
+    .sort((a, b) => (b.timestampMs ?? 0) - (a.timestampMs ?? 0))[0]?.id;
+
   return points.map((point) => {
     const existing = recordsById.get(point.id);
 
@@ -446,7 +561,31 @@ function syncMarkers(
       existing.element.dataset.kind = point.kind;
       existing.element.dataset.selected = point.id === selectedPointId ? "true" : "false";
       existing.element.setAttribute("aria-label", `${point.kind}: ${point.name}`);
-      existing.element.innerHTML = markerIconSvg(point.kind);
+      if (point.kind === "Gempa") {
+        existing.element.removeAttribute("data-erupting");
+        existing.element.removeAttribute("data-volcano-level");
+        existing.element.style.removeProperty("--bubble-size");
+        const isLatest = point.id === latestEarthquakeId;
+        const { iconUrl, isFelt } = resolveEarthquakeIcon(point, isLatest);
+        existing.element.dataset.latest = isLatest ? "true" : "false";
+        existing.element.dataset.felt = isFelt ? "true" : "false";
+        existing.element.innerHTML = `<img class="earthquake-marker-img" src="${iconUrl}" alt="${point.name}" loading="lazy" />`;
+      } else if (point.kind === "Gunung Api") {
+        existing.element.style.removeProperty("--bubble-size");
+        existing.element.removeAttribute("data-latest");
+        existing.element.removeAttribute("data-felt");
+        const { iconUrl, isErupting, level } = resolveVolcanoIcon(point);
+        existing.element.dataset.erupting = isErupting ? "true" : "false";
+        existing.element.dataset.volcanoLevel = String(level);
+        existing.element.innerHTML = `<img class="volcano-marker-img" src="${iconUrl}" alt="${point.name}" loading="lazy" />`;
+      } else {
+        existing.element.removeAttribute("data-erupting");
+        existing.element.removeAttribute("data-volcano-level");
+        existing.element.removeAttribute("data-latest");
+        existing.element.removeAttribute("data-felt");
+        existing.element.style.removeProperty("--bubble-size");
+        existing.element.innerHTML = markerIconSvg(point.kind);
+      }
       existing.element.onclick = () => {
         focusMapPoint(map, point, publicMode);
         onPointSelect?.(point);
@@ -471,7 +610,20 @@ function syncMarkers(
       focusMapPoint(map, point, publicMode);
       onPointSelect?.(point);
     };
-    element.innerHTML = markerIconSvg(point.kind);
+    if (point.kind === "Gempa") {
+      const isLatest = point.id === latestEarthquakeId;
+      const { iconUrl, isFelt } = resolveEarthquakeIcon(point, isLatest);
+      element.dataset.latest = isLatest ? "true" : "false";
+      element.dataset.felt = isFelt ? "true" : "false";
+      element.innerHTML = `<img class="earthquake-marker-img" src="${iconUrl}" alt="${point.name}" loading="lazy" />`;
+    } else if (point.kind === "Gunung Api") {
+      const { iconUrl, isErupting, level } = resolveVolcanoIcon(point);
+      element.dataset.erupting = isErupting ? "true" : "false";
+      element.dataset.volcanoLevel = String(level);
+      element.innerHTML = `<img class="volcano-marker-img" src="${iconUrl}" alt="${point.name}" loading="lazy" />`;
+    } else {
+      element.innerHTML = markerIconSvg(point.kind);
+    }
 
     const marker = new maplibregl.Marker({ element })
       .setLngLat([point.longitude, point.latitude]);
@@ -521,6 +673,7 @@ function pointPosition(point: MapPoint, points: MapPoint[], index: number) {
   const lane: Record<MapPoint["kind"], { left: number; top: number; dx: number; dy: number }> = {
     Kejadian: { left: 78, top: 24, dx: -7, dy: 16 },
     Gempa: { left: 78, top: 24, dx: -7, dy: 16 },
+    "Gunung Api": { left: 62, top: 20, dx: -6, dy: 15 },
     Posko: { left: 33, top: 36, dx: 9, dy: 18 },
     "Critical Need": { left: 50, top: 56, dx: 10, dy: 12 },
     Distribution: { left: 24, top: 24, dx: 9, dy: 12 },
@@ -562,7 +715,10 @@ function OperationalMapView({
   }];
 
   return (
-    <div className="absolute inset-0 overflow-hidden bg-[linear-gradient(145deg,#eef8f5_0%,#dfeee9_48%,#f7f4ea_100%)]">
+    <div
+      className="absolute inset-0 overflow-hidden bg-[linear-gradient(145deg,#eef8f5_0%,#dfeee9_48%,#f7f4ea_100%)]"
+      suppressHydrationWarning
+    >
       <div className="absolute inset-0 opacity-70 [background-image:linear-gradient(rgba(24,78,119,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(24,78,119,0.12)_1px,transparent_1px)] [background-size:42px_42px]" />
       <div className="absolute inset-x-6 top-1/2 h-px rotate-[-8deg] bg-status-info/45" />
       <div className="absolute left-1/4 top-0 h-full w-px rotate-[22deg] bg-status-info/30" />
@@ -710,6 +866,7 @@ export function CrisisMap({
     const initialCenter = centerForPoints(initialPoints, latestCenterRef.current, latestCameraFocusModeRef.current);
     const style = mapStyleUrl();
 
+
     try {
       const map = new maplibregl.Map({
         container: containerRef.current,
@@ -717,10 +874,19 @@ export function CrisisMap({
         center: initialCenter,
         zoom: initialPoints.length ? Math.max(latestZoomRef.current, 7.2) : latestZoomRef.current,
         attributionControl: false,
+        fadeDuration: 0,
+        renderWorldCopies: false,
+        maxTileCacheSize: 150,
+        refreshExpiredTiles: false,
       });
       mapRef.current = map;
       resizeObserver = new ResizeObserver(() => map.resize());
       resizeObserver.observe(containerRef.current);
+      // Aktifkan scrollZoom native dengan sensitivitas yang responsif dan mulus
+      map.scrollZoom.enable();
+      map.scrollZoom.setZoomRate(1 / 250);
+      map.scrollZoom.setWheelZoomRate(1 / 450);
+
       if (showControls) {
         map.addControl(new maplibregl.NavigationControl({ showCompass: false }), controlPosition);
         if (showUserLocationControl) {
@@ -842,7 +1008,10 @@ export function CrisisMap({
   }, [focusedPoint, focusPointSignal, publicMode, selectedPointId]);
 
   return (
-    <div className={cn("relative min-h-96 w-full overflow-clip rounded-[var(--radius-lg)] bg-muted", className)}>
+    <div
+      className={cn("relative min-h-96 w-full overflow-clip rounded-[var(--radius-lg)] bg-muted", className)}
+      suppressHydrationWarning
+    >
       <OperationalMapView
         points={points}
         publicMode={publicMode}

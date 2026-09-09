@@ -20,9 +20,9 @@ export function OperationalCard({
   return (
     <Card
       className={cn(
-        "operational-surface py-0 shadow-none",
-        emphasis === "critical" && "border-status-critical/25",
-        emphasis === "map" && "overflow-clip border-white/55 bg-card/82",
+        "bg-card text-card-foreground shadow-xs border",
+        emphasis === "critical" && "border-destructive/30",
+        emphasis === "map" && "overflow-clip border-border/55 bg-card/85",
         density === "compact" && "rounded-[var(--radius-md)]",
         className,
       )}
@@ -53,16 +53,16 @@ export function CommandStrip({
   tone?: "critical" | "warning" | "info" | "safe";
 }) {
   const toneClass = {
-    critical: "bg-status-critical/12 text-[var(--color-critical-deep)]",
-    warning: "bg-status-warning/18 text-[var(--color-ink)]",
-    info: "bg-status-info/12 text-status-info",
-    safe: "bg-status-safe/12 text-status-safe",
+    critical: "bg-red-500/15 text-red-700 dark:text-red-400 border border-red-500/20",
+    warning: "bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/20",
+    info: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border border-blue-500/20",
+    safe: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20",
   }[tone];
   const dotClass = {
-    critical: "bg-status-critical",
-    warning: "bg-status-warning",
-    info: "bg-status-info",
-    safe: "bg-status-safe",
+    critical: "bg-red-600 dark:bg-red-400",
+    warning: "bg-amber-600 dark:bg-amber-400",
+    info: "bg-blue-600 dark:bg-blue-400",
+    safe: "bg-emerald-600 dark:bg-emerald-400",
   }[tone];
 
   return (
@@ -75,7 +75,7 @@ export function CommandStrip({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="truncate text-sm font-semibold">{title}</p>
-            <Badge variant="outline" className="border-status-critical/25 bg-status-critical/10 text-[var(--color-critical-deep)]">{label}</Badge>
+            <Badge variant="outline" className="border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-400">{label}</Badge>
           </div>
           <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{detail}</p>
         </div>

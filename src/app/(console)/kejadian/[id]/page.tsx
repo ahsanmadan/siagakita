@@ -1,5 +1,8 @@
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { ArrowUpRight, Building2, Clock3, MapPin, Route, ShieldAlert, Users } from "lucide-react";
+import { SitrepExportActions } from "@/components/sitrep-export-actions";
+import type { SitrepMapPoint } from "@/components/sitrep-document";
 import { CrisisMap, type MapPoint } from "@/components/crisis-map";
 import { MapLegendDrawer } from "@/components/map-legend-drawer";
 import { ConfirmMutationAction } from "@/components/confirm-mutation-action";
@@ -13,15 +16,22 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { escalateEventAction } from "@/lib/actions/operations";
+import { requireRole } from "@/lib/auth";
 import { pickEventRecommendation } from "@/lib/recommendation-context";
 import { getEventByCode } from "@/lib/repositories/operations";
+import { buildSitrep } from "@/lib/sitrep";
 
 export default async function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const data = await getEventByCode(id);
+  await requireRole(["admin", "bpbd_operator", "field_officer"], "/dashboard");
+  const [data, requestHeaders] = await Promise.all([getEventByCode(id), headers()]);
   if (!data) notFound();
 
-  const { event, institutions, recommendations, relatedShelters } = data;
+  const forwardedHost = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
+  const forwardedProto = requestHeaders.get("x-forwarded-proto") ?? (forwardedHost?.startsWith("localhost") ? "http" : "https");
+  const appUrl = forwardedHost ? `${forwardedProto}://${forwardedHost}` : "";
+
+  const { event, institutions, recommendations, relatedShelters, relatedDistributions } = data;
   const criticalNeeds = relatedShelters.flatMap((shelter) =>
     shelter.needs
       .filter((need) => need.urgency === "critical" || need.requested > need.available)
@@ -43,6 +53,25 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     ...needPoints,
   ];
   const recommendation = pickEventRecommendation(recommendations, event.dbId, relatedShelters);
+  const publicPath = `/peta-publik?kejadian=${encodeURIComponent(event.id)}`;
+  const sitrep = buildSitrep({
+    event,
+    shelters: relatedShelters,
+    institutions,
+    distributions: relatedDistributions,
+    recommendation,
+    publicLink: `${appUrl}${publicPath}`,
+  });
+  const sitrepMapPoints: SitrepMapPoint[] = [
+    { id: event.id, label: event.name, latitude: event.coordinates.latitude, longitude: event.coordinates.longitude, kind: "event" },
+    ...relatedShelters.map((shelter, index) => ({
+      id: shelter.id,
+      label: `${index + 1}. ${shelter.name}`,
+      latitude: shelter.coordinates.latitude,
+      longitude: shelter.coordinates.longitude,
+      kind: "shelter" as const,
+    })),
+  ];
   const criticalShelters = relatedShelters.filter((shelter) => shelter.status === "critical").length;
   const activeInstitutions = institutions.filter((institution) => institution.contactStatus === "aktif").length;
   const operationalTimeline = [
@@ -86,7 +115,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
   return (
     <div className="space-y-6">
-      <PageHeader title={event.name} description={`${event.type} · ${event.location}, ${event.province} · diperbarui ${event.updatedAt}`} actions={<><StatusBadge status={event.status} /><ConfirmMutationAction action={escalateEventAction} label="Naikkan eskalasi" title="Naikkan level eskalasi?" description="Gunakan hanya jika kapasitas dukungan saat ini tidak cukup untuk kebutuhan lapangan." consequence="Level kejadian diperbarui, riwayat status bertambah, dan keputusan tercatat di audit log." fields={{ code: event.id, escalationLevel: event.escalationLevel === "Nasional" ? "Nasional" : "Provinsi", note: "Permintaan eskalasi diteruskan untuk persetujuan." }} variant="outline" /></>} />
+      <PageHeader title={event.name} description={`${event.type} · ${event.location}, ${event.province} · diperbarui ${event.updatedAt}`} actions={<><StatusBadge status={event.status} /><SitrepExportActions data={sitrep} mapPoints={sitrepMapPoints} publicPath={publicPath} /><ConfirmMutationAction action={escalateEventAction} label="Naikkan eskalasi" title="Naikkan level eskalasi?" description="Gunakan hanya jika kapasitas dukungan saat ini tidak cukup untuk kebutuhan lapangan." consequence="Level kejadian diperbarui, riwayat status bertambah, dan keputusan tercatat di audit log." fields={{ code: event.id, escalationLevel: event.escalationLevel === "Nasional" ? "Nasional" : "Provinsi", note: "Permintaan eskalasi diteruskan untuk persetujuan." }} variant="outline" /></>} />
 
       <CommandStrip title={`${event.escalationLevel} · respons aktif`} detail="Koordinasi lintas lembaga dan distribusi bantuan sedang berjalan." meta={`${relatedShelters.length} posko terhubung`} />
 
@@ -107,10 +136,36 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
       </section>
 
       <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(21rem,0.75fr)]">
-        <OperationalCard emphasis="map" className="map-workspace"><CardHeader className="flex flex-row items-center justify-between gap-4 border-b py-4"><div><CardTitle className="text-base">Crisis Situation Map</CardTitle><CardDescription>Operational Map View untuk lokasi kejadian, posko, dan akses bantuan</CardDescription></div><MapLegendDrawer /></CardHeader><CardContent className="relative p-0"><CrisisMap points={points} center={[event.coordinates.longitude, event.coordinates.latitude]} zoom={10.2} className="h-[34rem] rounded-none" /><MapOverlay icon={Route} eyebrow="Akses distribusi" title="Jalur kendaraan ringan dibuka satu arah">Validasi lapangan tetap diperlukan sebelum pengiriman berikutnya.</MapOverlay></CardContent></OperationalCard>
-        <div className="space-y-4">
+        <OperationalCard emphasis="map" className="flex flex-col h-full overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between gap-4 border-b py-4 shrink-0">
+            <div>
+              <CardTitle className="text-base">Crisis Situation Map</CardTitle>
+              <CardDescription>Operational Map View untuk lokasi kejadian, posko, dan akses bantuan</CardDescription>
+            </div>
+            <MapLegendDrawer />
+          </CardHeader>
+          <CardContent className="relative p-0 flex-1 flex flex-col min-h-0">
+            <CrisisMap
+              points={points}
+              center={[event.coordinates.longitude, event.coordinates.latitude]}
+              zoom={10.2}
+              className="flex-1 w-full h-full min-h-[34rem] rounded-none border-0"
+            />
+            <MapOverlay icon={Route} eyebrow="Akses distribusi" title="Jalur kendaraan ringan dibuka satu arah">
+              Validasi lapangan tetap diperlukan sebelum pengiriman berikutnya.
+            </MapOverlay>
+          </CardContent>
+        </OperationalCard>
+        <div className="space-y-4 flex flex-col">
           {recommendation ? <RecommendationCard recommendation={recommendation} /> : null}
-          <OperationalCard><CardHeader className="pb-2 pt-5"><CardTitle className="text-base">Ringkasan kondisi</CardTitle></CardHeader><CardContent className="pb-5 text-sm leading-6 text-muted-foreground">{event.summary}</CardContent></OperationalCard>
+          <OperationalCard className="flex-1">
+            <CardHeader className="pb-2 pt-5">
+              <CardTitle className="text-base">Ringkasan kondisi</CardTitle>
+            </CardHeader>
+            <CardContent className="pb-5 text-sm leading-6 text-muted-foreground">
+              {event.summary}
+            </CardContent>
+          </OperationalCard>
         </div>
       </section>
 

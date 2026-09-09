@@ -1,6 +1,7 @@
 import type { AppRole } from "@/lib/auth";
+import type { NavItemId } from "@/navigation/sidebar/sidebar-items";
 
-export type NavigationKey = "dashboard" | "events" | "shelters" | "logistics" | "reports" | "audit" | "publicMap";
+export type NavigationKey = NavItemId;
 
 export function roleMission(role: AppRole) {
   const missions: Record<AppRole, string> = {
@@ -14,26 +15,28 @@ export function roleMission(role: AppRole) {
   return missions[role];
 }
 
-export function roleNavigation(role: AppRole): NavigationKey[] {
-  const navigation: Record<AppRole, NavigationKey[]> = {
-    admin: ["dashboard", "audit", "publicMap"],
-    bpbd_operator: ["dashboard", "events", "reports", "shelters", "logistics", "audit", "publicMap"],
+export function roleNavigation(role: AppRole): NavItemId[] {
+  const navigation: Record<AppRole, NavItemId[]> = {
+    admin: ["dashboard", "events", "reports", "shelters", "logistics", "audit", "accounts", "publicMap"],
+    bpbd_operator: ["dashboard", "events", "reports", "shelters", "logistics", "audit", "accounts", "publicMap"],
     field_officer: ["dashboard", "reports", "publicMap"],
     shelter_manager: ["dashboard", "shelters", "publicMap"],
     warehouse_manager: ["dashboard", "logistics", "shelters", "publicMap"],
     public_viewer: ["publicMap"],
   };
-  return navigation[role];
+  return navigation[role] ?? ["dashboard", "publicMap"];
 }
 
 export function roleCapabilities(role: AppRole) {
   return {
-    canCreateReport: ["bpbd_operator", "field_officer"].includes(role),
-    canVerifyReport: role === "bpbd_operator",
-    canOpenIncident: role === "bpbd_operator",
-    canUpdateShelter: ["bpbd_operator", "shelter_manager"].includes(role),
-    canManageDistribution: ["bpbd_operator", "warehouse_manager"].includes(role),
+    canCreateReport: ["admin", "bpbd_operator", "field_officer"].includes(role),
+    canVerifyReport: ["admin", "bpbd_operator"].includes(role),
+    canRejectReport: ["admin", "bpbd_operator"].includes(role),
+    canOpenIncident: ["admin", "bpbd_operator"].includes(role),
+    canRegisterShelter: ["admin", "bpbd_operator"].includes(role),
+    canUpdateShelter: ["admin", "bpbd_operator", "shelter_manager"].includes(role),
+    canManageDistribution: ["admin", "bpbd_operator", "warehouse_manager"].includes(role),
     canViewAudit: ["admin", "bpbd_operator"].includes(role),
-    isCoordinator: role === "bpbd_operator",
+    isCoordinator: ["admin", "bpbd_operator"].includes(role),
   };
 }

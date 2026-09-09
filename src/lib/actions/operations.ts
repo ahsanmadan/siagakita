@@ -6,6 +6,8 @@ import type { ActionResult } from "@/lib/action-state";
 import { requireProfile } from "@/lib/auth";
 import { writeAuditLog } from "@/lib/actions/audit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { generateDisasterRecommendationGroq, triageFieldReportGroq } from "@/lib/ai/groq";
+import { getAggregatedExternalAlerts } from "@/lib/repositories/external-alerts";
 
 const statusSchema = z.enum(["critical", "major", "warning", "safe"]);
 const escalationSchema = z.enum(["Kabupaten", "Provinsi", "Nasional"]);
@@ -13,11 +15,22 @@ const distributionStatusSchema = z.enum(["disiapkan", "dalam-perjalanan", "diter
 const thirdPartyAidStatusSchema = z.enum(["diterima-gudang", "dialokasikan"]);
 const privilegedRoles = ["admin", "bpbd_operator"] as const;
 const reportRoles = ["admin", "bpbd_operator", "field_officer"] as const;
-const shelterRoles = ["admin", "bpbd_operator", "field_officer", "shelter_manager"] as const;
+const reportVerificationRoles = ["admin", "bpbd_operator"] as const;
+const shelterRoles = ["admin", "bpbd_operator", "shelter_manager"] as const;
 const warehouseRoles = ["admin", "bpbd_operator", "warehouse_manager"] as const;
 
 function value(formData: FormData, key: string) {
   return formData.get(key)?.toString() ?? "";
+}
+
+function parseReportGps(summary: string) {
+  const match = summary.match(/\[GPS:\s*(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/i);
+  if (!match) return null;
+  const latitude = Number(match[1]);
+  const longitude = Number(match[2]);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
+  return { latitude, longitude };
 }
 
 function ok(message: string): ActionResult {
@@ -103,12 +116,13 @@ export async function escalateEventAction(formData: FormData) {
 
 export async function verifyReportAction(formData: FormData) {
   return runAction(async () => {
-    const profile = await requireOneOf(reportRoles);
+    const profile = await requireOneOf(reportVerificationRoles);
     const code = z.string().min(1).parse(value(formData, "code"));
     const supabase = await createSupabaseServerClient();
     const { data: before, error: beforeError } = await supabase.from("field_reports").select("*").eq("code", code).single();
     if (beforeError || !before) throw new Error("Laporan tidak ditemukan.");
     if (before.event_id) throw new Error("Laporan ini sudah terhubung ke kejadian.");
+    if (before.status === "ditolak") throw new Error("Laporan yang sudah ditolak tidak dapat diverifikasi lewat aksi cepat.");
 
     const nextStatus = before.status === "baru" ? "diverifikasi" : "ditindaklanjuti";
     const { data: updated, error } = await supabase.from("field_reports").update({ status: nextStatus }).eq("id", before.id).select("*").single();
@@ -124,6 +138,41 @@ export async function verifyReportAction(formData: FormData) {
     revalidatePath("/laporan");
     revalidatePath("/dashboard");
     return ok(nextStatus === "diverifikasi" ? "Laporan berhasil diverifikasi." : "Laporan berhasil masuk tindak lanjut.");
+  });
+}
+
+export async function rejectReportAction(formData: FormData) {
+  return runAction(async () => {
+    const profile = await requireOneOf(privilegedRoles);
+    const parsed = z.object({
+      code: z.string().min(1),
+      reason: z.string().min(4).default("Laporan ditandai duplikat atau tidak valid oleh petugas triase."),
+    }).parse({
+      code: value(formData, "code"),
+      reason: value(formData, "reason") || "Laporan ditandai duplikat atau tidak valid oleh petugas triase.",
+    });
+
+    const supabase = await createSupabaseServerClient();
+    const { data: before, error: beforeError } = await supabase.from("field_reports").select("*").eq("code", parsed.code).single();
+    if (beforeError || !before) throw new Error("Laporan tidak ditemukan.");
+    if (before.event_id) throw new Error("Laporan ini sudah terhubung ke kejadian dan tidak dapat ditolak.");
+    if (before.status === "ditindaklanjuti") throw new Error("Laporan yang sudah ditindaklanjuti tidak dapat ditolak lewat aksi cepat.");
+    if (before.status === "ditolak") throw new Error("Laporan ini sudah ditandai ditolak.");
+
+    const { data: updated, error } = await supabase.from("field_reports").update({ status: "ditolak" }).eq("id", before.id).select("*").single();
+    if (error) throw new Error(error.message);
+
+    await supabase.from("report_verifications").insert({
+      report_id: before.id,
+      status: "ditolak",
+      note: parsed.reason,
+      verified_by: profile.id,
+    });
+    await writeAuditLog({ actorId: profile.id, action: "report.rejected", targetTable: "field_reports", targetId: before.id, beforeData: before, afterData: updated });
+    revalidatePath("/laporan");
+    revalidatePath("/dashboard");
+    revalidatePath("/audit-log");
+    return ok(`Laporan ${parsed.code} ditandai ditolak / duplikat.`);
   });
 }
 
@@ -266,12 +315,182 @@ export async function reviewRecommendationAction(formData: FormData) {
   });
 }
 
+export async function generateAIRecommendationAction() {
+  return runAction(async () => {
+    const profile = await requireOneOf(["admin", "bpbd_operator", "shelter_manager", "warehouse_manager"]);
+    const supabase = await createSupabaseServerClient();
+
+    const [eventsRes, sheltersRes, needsRes, inventoryRes, reportsRes] = await Promise.all([
+      supabase.from("disaster_events").select("id, name, location, status, escalation_level").eq("state", "active"),
+      supabase.from("shelters").select("id, name, capacity, population_total, children, elderly, pregnant, disability, status"),
+      supabase.from("needs").select("id, item, requested, available, unit, urgency, shelters(name)"),
+      supabase.from("inventory_items").select("id, item, category, stock, unit, status").eq("status", "critical"),
+      supabase.from("field_reports").select("id, reporter, location, summary, severity, status").eq("status", "baru").limit(5),
+    ]);
+
+    const events = (eventsRes.data ?? []).map((e) => ({
+      id: e.id,
+      name: e.name,
+      location: e.location,
+      status: e.status,
+      escalationLevel: e.escalation_level,
+    }));
+
+    const shelters = (sheltersRes.data ?? []).map((s) => ({
+      id: s.id,
+      name: s.name,
+      capacity: s.capacity,
+      occupancy: s.population_total,
+      children: s.children,
+      elderly: s.elderly,
+      vulnerable: s.pregnant + s.disability,
+      status: s.status,
+    }));
+
+    const criticalNeeds = (needsRes.data ?? [])
+      .filter((n) => n.urgency === "critical" || n.requested > n.available)
+      .map((n) => {
+        const shelterObj = Array.isArray(n.shelters) ? n.shelters[0] : n.shelters;
+        return {
+          item: n.item,
+          shelterName: shelterObj?.name || "Posko",
+          requested: n.requested,
+          available: n.available,
+          unit: n.unit,
+          urgency: n.urgency,
+        };
+      });
+
+    const criticalInventory = (inventoryRes.data ?? []).map((i) => ({
+      item: i.item,
+      category: i.category,
+      quantity: i.stock,
+      unit: i.unit,
+      status: i.status,
+    }));
+
+    const unverifiedReports = reportsRes.data ?? [];
+    const externalAlertsData = await getAggregatedExternalAlerts().catch(() => null);
+
+    const rec = await generateDisasterRecommendationGroq({
+      events,
+      shelters,
+      criticalNeeds,
+      criticalInventory,
+      unverifiedReportsCount: unverifiedReports.length,
+      recentUrgentReports: unverifiedReports.map((r) => ({
+        reporter: r.reporter,
+        location: r.location,
+        summary: r.summary,
+        severity: r.severity,
+      })),
+      externalAlerts: externalAlertsData ? {
+        latestEarthquake: externalAlertsData.latestEarthquake ? {
+          title: externalAlertsData.latestEarthquake.name,
+          location: externalAlertsData.latestEarthquake.location,
+          magnitude: Number(externalAlertsData.latestEarthquake.meta.magnitude) || 0,
+          depth: externalAlertsData.latestEarthquake.meta.depth || "10 km",
+          potentialTsunami: Boolean(
+            externalAlertsData.latestEarthquake.meta.tsunamiPotential &&
+            !externalAlertsData.latestEarthquake.meta.tsunamiPotential.toLowerCase().includes("tidak"),
+          ),
+          time: externalAlertsData.latestEarthquake.updatedAt,
+        } : null,
+        activeVolcanoes: externalAlertsData.volcanoes.slice(0, 5).map((v) => ({
+          name: v.name,
+          province: v.location,
+          statusLevel: v.meta.volcanoLevel || "Waspada (Level II)",
+          dangerRadiusKm: v.meta.dangerRadiusKm || 3,
+        })),
+      } : undefined,
+    });
+
+    const validEventId = events.find((e) => e.id === rec.eventId)?.id ?? events[0]?.id ?? null;
+    const validShelterId = shelters.find((s) => s.id === rec.shelterId)?.id ?? shelters[0]?.id ?? null;
+
+    const { data, error } = await supabase
+      .from("ai_recommendations")
+      .insert({
+        event_id: validEventId,
+        shelter_id: validShelterId,
+        title: rec.title,
+        rationale: rec.rationale,
+        confidence: rec.confidence,
+        priority: rec.priority,
+        action: rec.action,
+        factors: rec.factors,
+        source: `groq (${rec.modelUsed})`,
+      })
+      .select("*")
+      .single();
+
+    if (error) throw new Error(error.message);
+
+    await writeAuditLog({
+      actorId: profile.id,
+      action: "ai_recommendation.generated_groq",
+      targetTable: "ai_recommendations",
+      targetId: data.id,
+      afterData: data,
+    });
+
+    revalidatePath("/dashboard");
+    revalidatePath("/posko");
+    revalidatePath("/kejadian");
+    revalidatePath("/logistik");
+    revalidatePath("/audit-log");
+
+    return ok(`Rekomendasi AI berhasil di-generate via Groq (${rec.modelUsed}): "${rec.title}"`);
+  });
+}
+
+export async function triageReportWithAIAction(formData: FormData) {
+  return runAction(async () => {
+    const profile = await requireOneOf(reportRoles);
+    const code = z.string().min(1).parse(value(formData, "code"));
+    const supabase = await createSupabaseServerClient();
+    const { data: report, error: reportError } = await supabase
+      .from("field_reports")
+      .select("*")
+      .eq("code", code)
+      .single();
+    if (reportError || !report) throw new Error("Laporan tidak ditemukan.");
+
+    const analysis = await triageFieldReportGroq({
+      reporter: report.reporter,
+      location: report.location,
+      summary: report.summary,
+      channel: report.channel,
+    });
+
+    await writeAuditLog({
+      actorId: profile.id,
+      action: "report.ai_triaged_groq",
+      targetTable: "field_reports",
+      targetId: report.id,
+      beforeData: report,
+      afterData: { ...report, aiAnalysis: analysis },
+    });
+
+    revalidatePath("/laporan");
+    revalidatePath("/dashboard");
+    revalidatePath("/audit-log");
+
+    const severityLabel = analysis?.suggestedSeverity ? String(analysis.suggestedSeverity).toUpperCase() : "INFO";
+    return ok(`Analisis AI Groq (${severityLabel}): ${analysis?.reason || "Selesai dianalisis"}`);
+  });
+}
+
 export async function createFieldReport(formData: FormData) {
   return createReportAction(formData);
 }
 
 export async function verifyFieldReport(formData: FormData) {
   return verifyReportAction(formData);
+}
+
+export async function rejectFieldReport(formData: FormData) {
+  return rejectReportAction(formData);
 }
 
 export async function openEventFromReport(formData: FormData) {
@@ -296,6 +515,14 @@ export async function openEventFromReport(formData: FormData) {
     if (reportError || !report) throw new Error("Laporan tidak ditemukan.");
     if (report.event_id) throw new Error("Laporan ini sudah terhubung ke kejadian.");
     if (report.status === "baru") throw new Error("Laporan harus diverifikasi sebelum dibuka menjadi kejadian.");
+    if (report.status === "ditolak") throw new Error("Laporan yang ditandai ditolak tidak dapat dibuka menjadi kejadian.");
+
+    const reportGps = parseReportGps(report.summary ?? "");
+    const latitude = parsed.latitude ?? reportGps?.latitude;
+    const longitude = parsed.longitude ?? reportGps?.longitude;
+    if (latitude === undefined || longitude === undefined) {
+      throw new Error("Koordinat kejadian wajib diisi atau pilih laporan warga dengan GPS.");
+    }
 
     const eventCode = `EVT-${Date.now().toString().slice(-6)}`;
     const { data: event, error: eventError } = await supabase.from("disaster_events").insert({
@@ -307,8 +534,8 @@ export async function openEventFromReport(formData: FormData) {
       status: report.severity,
       state: "active",
       escalation_level: "Kabupaten",
-      latitude: parsed.latitude ?? -0.305,
-      longitude: parsed.longitude ?? 100.369,
+      latitude,
+      longitude,
       affected_people: 0,
       active_shelters: 0,
       summary: report.summary,

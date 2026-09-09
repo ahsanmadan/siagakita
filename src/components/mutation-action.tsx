@@ -3,8 +3,9 @@
 import { useActionState, useEffect } from "react";
 import { toast } from "sonner";
 import { FormStateMessage } from "@/components/form-state-message";
-import { SubmitButton } from "@/components/submit-button";
+import { SubmitButton, type ActionButtonSize, type ActionButtonVariant } from "@/components/submit-button";
 import { initialActionState, type ActionResult } from "@/lib/action-state";
+import { cn } from "@/lib/utils";
 
 export function MutationAction({
   action,
@@ -12,14 +13,22 @@ export function MutationAction({
   pendingLabel,
   fields,
   variant = "default",
+  size = "default",
+  icon,
+  showMessage = true,
   className,
+  buttonClassName,
 }: {
   action: (formData: FormData) => Promise<ActionResult>;
   label: string;
   pendingLabel?: string;
   fields?: Record<string, string | number>;
-  variant?: "default" | "outline" | "secondary" | "ghost";
+  variant?: ActionButtonVariant;
+  size?: ActionButtonSize;
+  icon?: React.ReactNode;
+  showMessage?: boolean;
   className?: string;
+  buttonClassName?: string;
 }) {
   const [state, formAction] = useActionState(async (_previousState: ActionResult, formData: FormData) => action(formData), initialActionState);
 
@@ -33,12 +42,12 @@ export function MutationAction({
   }, [state]);
 
   return (
-    <form action={formAction} className={className}>
+    <form action={formAction} className={cn("inline-flex", className)}>
       {fields
         ? Object.entries(fields).map(([name, value]) => <input key={name} type="hidden" name={name} value={value} />)
         : null}
-      <SubmitButton variant={variant} pendingLabel={pendingLabel}>{label}</SubmitButton>
-      <FormStateMessage state={state} className="mt-2" />
+      <SubmitButton variant={variant} size={size} icon={icon} pendingLabel={pendingLabel} className={buttonClassName}>{label}</SubmitButton>
+      {showMessage ? <FormStateMessage state={state} className="mt-2" /> : null}
     </form>
   );
 }

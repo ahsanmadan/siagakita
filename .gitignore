@@ -50,6 +50,13 @@ output/
 .hallmark/
 .impeccable/
 skills-lock.json
+*.skill
+.claude/
+.cursor/
+.gemini/
+.system_generated/
+tmp-*
+*.tmp
 
 # vercel
 .vercel

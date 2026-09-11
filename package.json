@@ -9,8 +9,8 @@
     "lint": "eslint",
     "supabase:start": "npx supabase start",
     "supabase:reset": "npx supabase db reset",
-    "supabase:status": "npx supabase status -o env",
-    "test:scenario": "node scripts/test-critical-case.mjs"
+    "test:scenario": "node scripts/test-critical-case.mjs",
+    "test:hardening": "node scripts/test-final-backend-hardening.mjs"
   },
   "dependencies": {
     "@better-auth/infra": "^0.4.5",

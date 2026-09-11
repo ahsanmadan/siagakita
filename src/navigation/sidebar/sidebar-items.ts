@@ -114,7 +114,7 @@ export const sidebarItems: NavGroup[] = [
 			},
 			{
 				id: "accounts",
-				title: "Akun Demo",
+				title: "Pengaturan Akun",
 				url: "/akun",
 				icon: UserCog,
 			},

@@ -41,6 +41,7 @@ export default function RootLayout({
   return (
     <html
       lang="id"
+      className={fontVars}
       data-theme-mode={theme_mode}
       data-theme-preset={theme_preset}
       data-content-layout={content_layout}
@@ -53,7 +54,7 @@ export default function RootLayout({
       <head>
         <ThemeBootScript />
       </head>
-      <body className={`${fontVars} min-h-screen antialiased`} suppressHydrationWarning>
+      <body className="min-h-screen antialiased" suppressHydrationWarning>
         <TooltipProvider delayDuration={400}>
           <PreferencesStoreProvider initialValues={PREFERENCE_DEFAULTS}>
             {children}

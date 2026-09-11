@@ -42,7 +42,7 @@ export function MetricCard({
             <p className="text-xs font-medium text-muted-foreground">{label}</p>
             {meta ? <span className="rounded-full bg-muted px-2 py-0.5 text-[0.68rem] font-medium text-muted-foreground">{meta}</span> : null}
           </div>
-          <p className="data-number mt-2 text-3xl font-semibold tracking-tight">{value}</p>
+          <p className="data-number font-kpi mt-2 text-3xl font-semibold tracking-tight">{value}</p>
           <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{note}</p>
         </div>
         <div className={cn("grid size-10 shrink-0 place-items-center rounded-xl transition-transform duration-200 group-hover:-translate-y-0.5", tones[tone])}>

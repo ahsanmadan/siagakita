@@ -25,8 +25,8 @@
   --color-critical-deep: oklch(0.44 0.17 25);
   --color-focus: oklch(0.57 0.19 260);
   --color-accent-ink: oklch(1 0 0);
-  --font-display: var(--font-plus-jakarta);
-  --font-body: var(--font-inter);
+  --font-display: var(--font-plus-jakarta), "Plus Jakarta Sans", sans-serif;
+  --font-body: var(--font-inter), Inter, sans-serif;
   --font-mono-data: ui-monospace, "Cascadia Code", monospace;
   --space-2xs: 0.25rem;
   --space-xs: 0.5rem;

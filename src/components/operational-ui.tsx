@@ -75,7 +75,7 @@ export function CommandStrip({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="truncate text-sm font-semibold">{title}</p>
-            <Badge variant="outline" className="border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-400">{label}</Badge>
+            <Badge variant="outline" className={toneClass}>{label}</Badge>
           </div>
           <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{detail}</p>
         </div>
@@ -109,7 +109,7 @@ export function SectionHeader({
     <div className={cn("flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between", className)}>
       <div className="min-w-0">
         {eyebrow ? <p className="text-[0.72rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{eyebrow}</p> : null}
-        <h2 className="mt-1 text-base font-semibold tracking-tight">{title}</h2>
+        <h2 className="font-heading mt-1 text-base font-semibold tracking-tight">{title}</h2>
         {description ? <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">{description}</p> : null}
       </div>
       {action ? <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">{action}</div> : null}

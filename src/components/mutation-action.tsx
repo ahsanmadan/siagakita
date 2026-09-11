@@ -15,7 +15,7 @@ export function MutationAction({
   variant = "default",
   size = "default",
   icon,
-  showMessage = true,
+  showMessage = false,
   className,
   buttonClassName,
 }: {
@@ -42,12 +42,12 @@ export function MutationAction({
   }, [state]);
 
   return (
-    <form action={formAction} className={cn("inline-flex", className)}>
+    <form action={formAction} className={cn("inline-flex items-center", showMessage && "flex-col items-start gap-1", className)}>
       {fields
         ? Object.entries(fields).map(([name, value]) => <input key={name} type="hidden" name={name} value={value} />)
         : null}
       <SubmitButton variant={variant} size={size} icon={icon} pendingLabel={pendingLabel} className={buttonClassName}>{label}</SubmitButton>
-      {showMessage ? <FormStateMessage state={state} className="mt-2" /> : null}
+      {showMessage && state.message ? <FormStateMessage state={state} className="mt-1" /> : null}
     </form>
   );
 }

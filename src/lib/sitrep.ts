@@ -15,9 +15,18 @@ const statusLabels: Record<CrisisStatus, string> = {
 };
 
 const distributionLabels: Record<Distribution["status"], string> = {
-  disiapkan: "Disiapkan",
+  menunggu_alokasi: "Menunggu alokasi armada",
+  dialokasikan: "Armada dialokasikan",
+  disiapkan: "Disiapkan di gudang",
+  berangkat: "Armada berangkat",
+  dalam_perjalanan: "Dalam perjalanan",
   "dalam-perjalanan": "Dalam perjalanan",
+  tertunda: "Pengiriman tertunda",
+  tiba_di_posko: "Tiba di posko",
+  diterima_posko: "Diterima posko",
   diterima: "Diterima",
+  selesai: "Selesai",
+  dibatalkan: "Dibatalkan",
 };
 
 const dateFormatter = new Intl.DateTimeFormat("id-ID", { dateStyle: "long", timeZone: "Asia/Jakarta" });

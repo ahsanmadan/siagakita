@@ -36,15 +36,27 @@ function SortableHeader({ label, canSort, sorted, onToggle }: SortableHeaderProp
 
 const reportStatusLabels: Record<FieldReport["status"], string> = {
   baru: "Baru",
+  perlu_verifikasi: "Perlu Verifikasi",
   diverifikasi: "Diverifikasi",
+  duplikat: "Duplikat",
+  ditolak: "Ditolak",
   ditindaklanjuti: "Ditindaklanjuti",
-  ditolak: "Ditolak / Duplikat",
+  dibuka_jadi_kejadian: "Dibuka Jadi Kejadian",
 };
 
 const distributionStatusLabels: Record<Distribution["status"], string> = {
+  menunggu_alokasi: "Menunggu alokasi",
+  dialokasikan: "Armada dialokasikan",
   disiapkan: "Disiapkan",
+  berangkat: "Berangkat",
+  dalam_perjalanan: "Dalam perjalanan",
   "dalam-perjalanan": "Dalam perjalanan",
+  tertunda: "Tertunda",
+  tiba_di_posko: "Tiba di posko",
+  diterima_posko: "Diterima posko",
   diterima: "Diterima",
+  selesai: "Selesai",
+  dibatalkan: "Dibatalkan",
 };
 
 export const REPORT_COLUMN_LABELS: Record<string, string> = {
@@ -152,15 +164,27 @@ export function reportColumns({
       enableHiding: false,
       cell: ({ row }) => (
         <div className="flex min-w-44 flex-wrap gap-2">
-          {canVerifyReport && row.original.status !== "ditolak" ? (
+          {canVerifyReport &&
+          (row.original.status === "baru" ||
+            row.original.status === "perlu_verifikasi" ||
+            row.original.status === "diverifikasi") ? (
             <MutationAction
               action={verifyFieldReport}
-              label={row.original.status === "baru" ? "Verifikasi" : "Tindak lanjut"}
+              label={
+                row.original.status === "baru" || row.original.status === "perlu_verifikasi"
+                  ? "Verifikasi"
+                  : "Tindak lanjut"
+              }
               fields={{ code: row.original.id }}
-              variant={row.original.status === "baru" ? "outline" : "secondary"}
+              variant={
+                row.original.status === "baru" || row.original.status === "perlu_verifikasi"
+                  ? "outline"
+                  : "secondary"
+              }
             />
           ) : null}
-          {canOpenIncident && row.original.status !== "baru" && row.original.status !== "ditolak" ? (
+          {canOpenIncident &&
+          (row.original.status === "diverifikasi" || row.original.status === "ditindaklanjuti") ? (
             <ConfirmMutationAction
               action={openEventFromReport}
               label="Buka kejadian"

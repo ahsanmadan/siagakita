@@ -26,3 +26,44 @@
 3. **No Giant Log Dumps**: Never read logs with `Tail > 30`. Always filter or inspect targeted error messages.
 4. **Fail Fast on Auth/Clock Skew**: If dev login, token, or auth fails once, STOP and report immediately. Never spin 5+ trial-and-error scripts in a loop.
 5. **Clean Temporary Files**: Always clean up any `tmp-*.mjs` or probe scripts immediately upon finishing.
+
+---
+
+# 🔒 LOCKED VIBE CODING STACK — PERMANENT ENFORCEMENT
+
+> All skills below are **always active**. No confirmation needed. No re-prompting.
+
+## 4. Core Behavior & Formatting (Caveman Ultra + Antislop Base)
+
+- **Mode**: Caveman Ultra + Antislop Base
+- Output must be ultra-short. Zero filler, greetings, pleasantries, or explanations. Go straight to code/solution.
+- Skills locked:
+  - `$caveman` → enforce `ultra` mode
+  - `$antislop`
+  - `$antislop-human`
+  - `$antislop-copywriting`
+
+## 5. Code Generation & Pruning (Ponytail + Antislop Code)
+
+- **Mode**: Ponytail Strict + Antislop Code
+- Maximize code pruning. Eliminate dead code, redundant boilerplate, over-engineering. Rely 100% on native/stdlib platform features.
+- Skills locked:
+  - `@Ponytail` → lock strict execution
+  - `$antislop-code`
+
+## 6. Frontend & Mobile UI (Frontend Design + Antislop UI/Mobile Layout)
+
+- **Mode**: Modern Responsive UI Guard
+- Enforce pixel-perfect design system tokens, consistent spacing, mobile-first, lightweight layouts.
+- Skills locked:
+  - `$frontend-design`
+  - `$antislop-ui`
+  - `$antislop-layoutmobile`
+
+## 7. Architecture & Workflow (Improve Architecture + To Tickets)
+
+- **Mode**: Codebase Integration & Task Segmentation
+- Align all output with existing repository patterns. Split massive features into modular micro-tickets automatically.
+- Skills locked:
+  - `$improve-codebase-architecture`
+  - `$to-tickets`

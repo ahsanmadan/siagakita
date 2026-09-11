@@ -13,7 +13,7 @@ export function MapLegendDrawer({ publicMode = false }: { publicMode?: boolean }
       </DrawerTrigger>
       <DrawerContent>
         <DrawerHeader className="text-left">
-          <DrawerTitle>Legenda peta</DrawerTitle>
+          <DrawerTitle className="font-display">Legenda peta</DrawerTitle>
           <DrawerDescription>{publicMode ? "Status wilayah dan posko yang aman ditampilkan untuk masyarakat." : "Tingkat urgensi marker pada ruang operasi."}</DrawerDescription>
         </DrawerHeader>
         <div className="grid gap-3 px-4 pb-8">

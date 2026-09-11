@@ -67,17 +67,6 @@ export type ReportTrendPoint = {
 
 export const TREND_WINDOW_DAYS = 90;
 
-function offsetCoordinates(latitude: number, longitude: number, index: number) {
-  const offsets = [
-    [0.018, 0.016],
-    [-0.016, 0.018],
-    [0.015, -0.015],
-    [-0.014, -0.017],
-  ];
-  const [latOffset, lngOffset] = offsets[index % offsets.length];
-  return { latitude: latitude + latOffset, longitude: longitude + lngOffset };
-}
-
 function distributionTone(status: Distribution["status"]): CrisisStatus {
   if (status === "diterima") return "safe";
   if (status === "dalam-perjalanan") return "warning";
@@ -94,23 +83,20 @@ function destinationShelter(distribution: Distribution, shelters: Shelter[]) {
 }
 
 export function mapPointsFor(events: DisasterEvent[], shelters: Shelter[], distributions: Distribution[]): MapPoint[] {
-  const needPoints: MapPoint[] = shelters.flatMap((shelter, shelterIndex) =>
+  const needPoints: MapPoint[] = shelters.flatMap((shelter) =>
     shelter.needs
       .filter((need) => need.urgency === "critical" || need.requested > need.available)
       .slice(0, 2)
-      .map((need, needIndex) => {
-        const coordinates = offsetCoordinates(shelter.coordinates.latitude, shelter.coordinates.longitude, shelterIndex + needIndex);
-        return {
-          id: `${shelter.id}-${need.id}-need`,
-          name: need.item,
-          location: shelter.name,
-          latitude: coordinates.latitude,
-          longitude: coordinates.longitude,
-          status: need.urgency,
-          kind: "Critical Need" as const,
-          detail: `Kekurangan ${(need.requested - need.available).toLocaleString("id-ID")} ${need.unit} untuk posko.`,
-        };
-      }),
+      .map((need) => ({
+        id: `${shelter.id}-${need.id}-need`,
+        name: need.item,
+        location: shelter.name,
+        latitude: shelter.coordinates.latitude,
+        longitude: shelter.coordinates.longitude,
+        status: need.urgency,
+        kind: "Critical Need" as const,
+        detail: `Kekurangan ${(need.requested - need.available).toLocaleString("id-ID")} ${need.unit} untuk posko.`,
+      })),
   );
 
   const distributionPoints: MapPoint[] = distributions
@@ -118,13 +104,12 @@ export function mapPointsFor(events: DisasterEvent[], shelters: Shelter[], distr
     .flatMap((distribution, index) => {
       const shelter = destinationShelter(distribution, shelters) ?? shelters[index % Math.max(shelters.length, 1)];
       if (!shelter) return [];
-      const coordinates = offsetCoordinates(shelter.coordinates.latitude, shelter.coordinates.longitude, index + 2);
       return [{
         id: `${distribution.id}-distribution`,
         name: distribution.cargo,
         location: distribution.destination,
-        latitude: coordinates.latitude,
-        longitude: coordinates.longitude,
+        latitude: shelter.coordinates.latitude,
+        longitude: shelter.coordinates.longitude,
         status: distributionTone(distribution.status),
         kind: "Distribution" as const,
         detail: `${distribution.origin} ke ${distribution.destination} · ETA ${distribution.eta}`,
@@ -242,7 +227,9 @@ export function roleSectionCards(
 ): SectionCardItem[] {
   const needs = criticalNeeds(data.shelters);
   const distributions = activeDistributions(data.distributions);
-  const pendingReports = data.fieldReports.filter((report) => report.status === "baru");
+  const pendingReports = data.fieldReports.filter(
+    (report) => report.status === "baru" || report.status === "perlu_verifikasi",
+  );
   const lowStock = data.inventory.filter((item) => item.status === "critical" || item.status === "warning");
   const intakeDelta = reportIntakeDelta(data.fieldReports, now);
   const vulnerablePeople = data.shelters.reduce(
@@ -252,7 +239,12 @@ export function roleSectionCards(
 
   if (profile.role === "field_officer") {
     const reports = latestReportsFor(profile, data.fieldReports);
-    const verified = reports.filter((report) => report.status === "diverifikasi" || report.status === "ditindaklanjuti").length;
+    const verified = reports.filter(
+      (report) =>
+        report.status === "diverifikasi" ||
+        report.status === "ditindaklanjuti" ||
+        report.status === "dibuka_jadi_kejadian",
+    ).length;
 
     return [
       {
@@ -268,7 +260,11 @@ export function roleSectionCards(
       {
         id: "new",
         label: "Baru",
-        value: String(reports.filter((report) => report.status === "baru").length),
+        value: String(
+          reports.filter(
+            (report) => report.status === "baru" || report.status === "perlu_verifikasi",
+          ).length,
+        ),
         icon: RadioTower,
         tone: "warning",
         footerTitle: "Menunggu petugas BPBD",

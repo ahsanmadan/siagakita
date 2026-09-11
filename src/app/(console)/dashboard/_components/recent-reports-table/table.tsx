@@ -9,12 +9,12 @@ import {
   useTable,
 } from "@tanstack/react-table";
 import {
-  ArrowUpDown,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
   Filter,
+  Radio,
   Search,
   SlidersHorizontal,
 } from "lucide-react";
@@ -74,13 +74,14 @@ const statusOptions = [
 ] as const;
 
 export function RecentReportsTable({ data }: { data: RecentReportRow[] }) {
-  const [rowSelection, setRowSelection] = React.useState({});
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
+    [],
+  );
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnVisibility] = React.useState<ColumnVisibilityState>({});
   const [pagination, setPagination] = React.useState<PaginationState>({
     pageIndex: 0,
-    pageSize: 5,
+    pageSize: 10,
   });
 
   const table = useTable({
@@ -88,15 +89,12 @@ export function RecentReportsTable({ data }: { data: RecentReportRow[] }) {
     data,
     columns: recentReportsColumns,
     state: {
-      rowSelection,
       columnFilters,
       sorting,
       columnVisibility,
       pagination,
     },
     getRowId: (row) => row.id,
-    enableRowSelection: true,
-    onRowSelectionChange: setRowSelection,
     onColumnFiltersChange: setColumnFilters,
     onSortingChange: setSorting,
     onPaginationChange: setPagination,
@@ -110,19 +108,30 @@ export function RecentReportsTable({ data }: { data: RecentReportRow[] }) {
     table.setPageIndex(0);
   };
 
-  const urgencyFilter = (table.getColumn("urgency")?.getFilterValue() as string | undefined) ?? "all";
-  const channelFilter = (table.getColumn("channel")?.getFilterValue() as string | undefined) ?? "all";
-  const statusFilter = (table.getColumn("status")?.getFilterValue() as string | undefined) ?? "all";
+  const urgencyFilter =
+    (table.getColumn("urgency")?.getFilterValue() as string | undefined) ??
+    "all";
+  const channelFilter =
+    (table.getColumn("channel")?.getFilterValue() as string | undefined) ??
+    "all";
+  const statusFilter =
+    (table.getColumn("status")?.getFilterValue() as string | undefined) ??
+    "all";
+  const filteredCount = table.getFilteredRowModel().rows.length;
+
+  const pageIndex = pagination.pageIndex;
+  const pageSize = pagination.pageSize;
+  const startRecord = filteredCount === 0 ? 0 : pageIndex * pageSize + 1;
+  const endRecord = Math.min((pageIndex + 1) * pageSize, filteredCount);
 
   return (
-    <div className="space-y-4">
-      {/* Filters & Actions Bar */}
+    <div className="space-y-4 font-sans">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative w-full sm:w-72">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
-              className="h-8 rounded-lg pl-8 text-xs"
+              className="h-11 rounded-lg pl-8 text-xs font-sans sm:h-8"
               placeholder="Cari nama pelapor / lokasi..."
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
@@ -131,7 +140,11 @@ export function RecentReportsTable({ data }: { data: RecentReportRow[] }) {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-11 gap-1.5 text-xs font-sans sm:h-8"
+              >
                 <SlidersHorizontal className="size-3.5" />
                 Urgensi: {urgencyFilter === "all" ? "Semua" : urgencyFilter}
               </Button>
@@ -140,12 +153,18 @@ export function RecentReportsTable({ data }: { data: RecentReportRow[] }) {
               <DropdownMenuRadioGroup
                 value={urgencyFilter}
                 onValueChange={(val) => {
-                  table.getColumn("urgency")?.setFilterValue(val === "all" ? undefined : val);
+                  table
+                    .getColumn("urgency")
+                    ?.setFilterValue(val === "all" ? undefined : val);
                   table.setPageIndex(0);
                 }}
               >
                 {urgencyOptions.map((opt) => (
-                  <DropdownMenuRadioItem key={opt.value} value={opt.value} className="text-xs">
+                  <DropdownMenuRadioItem
+                    key={opt.value}
+                    value={opt.value}
+                    className="text-xs font-sans"
+                  >
                     {opt.label}
                   </DropdownMenuRadioItem>
                 ))}
@@ -155,7 +174,45 @@ export function RecentReportsTable({ data }: { data: RecentReportRow[] }) {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-11 gap-1.5 text-xs font-sans sm:h-8"
+              >
+                <Radio className="size-3.5" />
+                Saluran: {channelFilter === "all" ? "Semua" : channelFilter}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-44" align="start">
+              <DropdownMenuRadioGroup
+                value={channelFilter}
+                onValueChange={(value) => {
+                  table
+                    .getColumn("channel")
+                    ?.setFilterValue(value === "all" ? undefined : value);
+                  table.setPageIndex(0);
+                }}
+              >
+                {channelOptions.map((option) => (
+                  <DropdownMenuRadioItem
+                    key={option.value}
+                    value={option.value}
+                    className="text-xs font-sans"
+                  >
+                    {option.label}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-11 gap-1.5 text-xs font-sans sm:h-8"
+              >
                 <Filter className="size-3.5" />
                 Status: {statusFilter === "all" ? "Semua" : statusFilter}
               </Button>
@@ -164,12 +221,18 @@ export function RecentReportsTable({ data }: { data: RecentReportRow[] }) {
               <DropdownMenuRadioGroup
                 value={statusFilter}
                 onValueChange={(val) => {
-                  table.getColumn("status")?.setFilterValue(val === "all" ? undefined : val);
+                  table
+                    .getColumn("status")
+                    ?.setFilterValue(val === "all" ? undefined : val);
                   table.setPageIndex(0);
                 }}
               >
                 {statusOptions.map((opt) => (
-                  <DropdownMenuRadioItem key={opt.value} value={opt.value} className="text-xs">
+                  <DropdownMenuRadioItem
+                    key={opt.value}
+                    value={opt.value}
+                    className="text-xs font-sans"
+                  >
                     {opt.label}
                   </DropdownMenuRadioItem>
                 ))}
@@ -178,23 +241,39 @@ export function RecentReportsTable({ data }: { data: RecentReportRow[] }) {
           </DropdownMenu>
         </div>
 
-        <div className="text-xs text-muted-foreground">
-          {table.getFilteredSelectedRowModel().rows.length} dari{" "}
-          {table.getFilteredRowModel().rows.length} baris terpilih
+        <div className="text-xs text-muted-foreground" aria-live="polite">
+          {filteredCount} laporan ditampilkan
         </div>
       </div>
 
-      {/* Table Surface */}
-      <div className="overflow-hidden rounded-lg border bg-card shadow-xs">
-        <Table>
+      <div className="overflow-x-auto rounded-lg border bg-card">
+        <Table className="w-full">
           <TableHeader className="bg-muted/30">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} colSpan={header.colSpan} className="h-10 px-3 text-xs font-semibold">
-                    {header.isPlaceholder ? null : <table.FlexRender header={header} />}
-                  </TableHead>
-                ))}
+                {headerGroup.headers.map((header) => {
+                  const id = header.column.id;
+                  let colClass =
+                    "h-9 px-3 text-xs font-semibold whitespace-nowrap";
+                  if (id === "reporterName") colClass += " w-[220px]";
+                  else if (id === "disasterType") colClass += " min-w-[240px]";
+                  else if (id === "urgency") colClass += " w-[110px]";
+                  else if (id === "channel") colClass += " w-[130px]";
+                  else if (id === "status") colClass += " w-[125px]";
+                  else if (id === "actions") colClass += " w-[75px] text-right";
+
+                  return (
+                    <TableHead
+                      key={header.id}
+                      colSpan={header.colSpan}
+                      className={colClass}
+                    >
+                      {header.isPlaceholder ? null : (
+                        <table.FlexRender header={header} />
+                      )}
+                    </TableHead>
+                  );
+                })}
               </TableRow>
             ))}
           </TableHeader>
@@ -203,20 +282,31 @@ export function RecentReportsTable({ data }: { data: RecentReportRow[] }) {
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  data-state={table.state.rowSelection[row.id] && "selected"}
-                  className="hover:bg-muted/40 transition-colors"
+                  className="transition-colors hover:bg-muted/40"
                 >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="p-3 align-middle text-xs">
-                      <table.FlexRender cell={cell} />
-                    </TableCell>
-                  ))}
+                  {row.getVisibleCells().map((cell) => {
+                    const id = cell.column.id;
+                    let cellClass = "px-3 py-2.5 align-middle text-xs";
+                    if (id !== "disasterType" && id !== "reporterName") {
+                      cellClass += " whitespace-nowrap";
+                    }
+                    return (
+                      <TableCell key={cell.id} className={cellClass}>
+                        <table.FlexRender cell={cell} />
+                      </TableCell>
+                    );
+                  })}
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={recentReportsColumns.length} className="h-24 text-center text-xs text-muted-foreground">
-                  Tidak ada laporan bencana ditemukan.
+                <TableCell
+                  colSpan={recentReportsColumns.length}
+                  className="h-24 text-center text-xs text-muted-foreground"
+                >
+                  {data.length === 0
+                    ? "Belum ada laporan yang masuk."
+                    : "Tidak ada laporan yang sesuai dengan pencarian atau filter."}
                 </TableCell>
               </TableRow>
             )}
@@ -224,27 +314,43 @@ export function RecentReportsTable({ data }: { data: RecentReportRow[] }) {
         </Table>
       </div>
 
-      {/* Pagination Controls */}
-      <div className="flex items-center justify-between px-1">
-        <div className="hidden flex-1 text-muted-foreground text-xs lg:flex">
-          Halaman {table.state.pagination.pageIndex + 1} dari {table.getPageCount() || 1}
+      <div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-xs text-muted-foreground font-sans">
+          {filteredCount === 0
+            ? "Menampilkan 0 laporan"
+            : `Menampilkan ${startRecord}–${endRecord} dari ${filteredCount} laporan`}
         </div>
-        <div className="flex w-full items-center gap-6 lg:w-fit">
+
+        <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end sm:gap-6">
           <div className="flex items-center gap-2">
-            <Label htmlFor="rows-per-page" className="font-medium text-xs">
+            <Label
+              htmlFor="rows-per-page"
+              className="text-xs font-medium text-muted-foreground font-sans"
+            >
               Baris per halaman
             </Label>
             <Select
               value={`${table.state.pagination.pageSize}`}
-              onValueChange={(val) => table.setPageSize(Number(val))}
+              onValueChange={(val) => {
+                table.setPageSize(Number(val));
+                table.setPageIndex(0);
+              }}
             >
-              <SelectTrigger size="sm" className="w-16 h-7 text-xs" id="rows-per-page">
+              <SelectTrigger
+                size="sm"
+                className="h-8 w-18 text-xs font-sans"
+                id="rows-per-page"
+              >
                 <SelectValue placeholder={table.state.pagination.pageSize} />
               </SelectTrigger>
               <SelectContent side="top">
                 <SelectGroup>
-                  {[5, 10, 20].map((size) => (
-                    <SelectItem key={size} value={`${size}`} className="text-xs">
+                  {[10, 25, 50, 100].map((size) => (
+                    <SelectItem
+                      key={size}
+                      value={`${size}`}
+                      className="text-xs font-sans"
+                    >
                       {size}
                     </SelectItem>
                   ))}
@@ -253,43 +359,53 @@ export function RecentReportsTable({ data }: { data: RecentReportRow[] }) {
             </Select>
           </div>
 
-          <div className="ml-auto flex items-center gap-1.5 lg:ml-0">
-            <Button
-              variant="outline"
-              className="size-7 p-0"
-              size="icon"
-              onClick={() => table.setPageIndex(0)}
-              disabled={!table.getCanPreviousPage()}
-            >
-              <ChevronsLeft className="size-3.5" />
-            </Button>
-            <Button
-              variant="outline"
-              className="size-7 p-0"
-              size="icon"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-            >
-              <ChevronLeft className="size-3.5" />
-            </Button>
-            <Button
-              variant="outline"
-              className="size-7 p-0"
-              size="icon"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-            >
-              <ChevronRight className="size-3.5" />
-            </Button>
-            <Button
-              variant="outline"
-              className="size-7 p-0"
-              size="icon"
-              onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-              disabled={!table.getCanNextPage()}
-            >
-              <ChevronsRight className="size-3.5" />
-            </Button>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground font-sans">
+              Halaman {table.state.pagination.pageIndex + 1} dari{" "}
+              {table.getPageCount() || 1}
+            </span>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                className="size-8 p-0"
+                size="icon"
+                onClick={() => table.setPageIndex(0)}
+                disabled={!table.getCanPreviousPage()}
+                aria-label="Ke halaman pertama"
+              >
+                <ChevronsLeft className="size-3.5" />
+              </Button>
+              <Button
+                variant="outline"
+                className="size-8 p-0"
+                size="icon"
+                onClick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+                aria-label="Ke halaman sebelumnya"
+              >
+                <ChevronLeft className="size-3.5" />
+              </Button>
+              <Button
+                variant="outline"
+                className="size-8 p-0"
+                size="icon"
+                onClick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+                aria-label="Ke halaman berikutnya"
+              >
+                <ChevronRight className="size-3.5" />
+              </Button>
+              <Button
+                variant="outline"
+                className="size-8 p-0"
+                size="icon"
+                onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                disabled={!table.getCanNextPage()}
+                aria-label="Ke halaman terakhir"
+              >
+                <ChevronsRight className="size-3.5" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>

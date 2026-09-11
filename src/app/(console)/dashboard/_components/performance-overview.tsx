@@ -112,7 +112,7 @@ export function PerformanceOverview({
   return (
     <Card className="@container/card">
       <CardHeader>
-        <CardTitle className="leading-none">Tren Mobilisasi Logistik &amp; Evakuasi</CardTitle>
+        <CardTitle className="font-display leading-none">Tren Mobilisasi Logistik &amp; Evakuasi</CardTitle>
         <CardDescription>
           <span className="@[540px]/card:block hidden">
             Dinamika pergerakan bantuan dan penyelamatan warga sesuai status operasional aktif

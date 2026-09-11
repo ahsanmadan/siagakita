@@ -107,6 +107,16 @@ function getPointStatusLabel(point: MapPoint): string {
     if (point.magnitude) return `M ${point.magnitude}`;
     return publicStatusLabels[point.status] || "Waspada";
   }
+  if (point.kind === "Distribution") {
+    if (point.isStale) return "Lokasi Terakhir Diperbarui";
+    if (point.distributionStatus === "disiapkan") return "Disiapkan";
+    if (point.distributionStatus === "dialokasikan") return "Armada Dialokasikan";
+    if (point.distributionStatus === "berangkat") return "Berangkat";
+    if (point.distributionStatus === "tertunda") return "Tertunda";
+    if (point.distributionStatus === "tiba_di_posko") return "Tiba di Posko";
+    if (point.distributionStatus === "diterima" || point.distributionStatus === "diterima_posko" || point.distributionStatus === "selesai") return "Diterima Posko";
+    return "Dalam Perjalanan";
+  }
   return publicStatusLabels[point.status] || "Siaga";
 }
 
@@ -122,6 +132,7 @@ function pointKindLabel(point: MapPoint) {
   if (isEventPoint(point)) return "Kejadian aktif";
   if (point.kind === "Posko") return "Posko";
   if (point.kind === "Critical Need") return "Kebutuhan kritis";
+  if (point.kind === "Distribution") return "Mobil Logistik";
   return "Distribusi";
 }
 
@@ -434,6 +445,11 @@ function renderItemMedia(point: MapPoint, meta?: PublicPointMeta) {
       alt: `Kebutuhan logistik ${point.name}`,
       badge: "LOGISTIK",
     },
+    "Distribution": {
+      src: "/images/shelter-camp.jpg",
+      alt: `Mobil logistik ${point.name}`,
+      badge: "ARMADA",
+    },
     "Kejadian": {
       src: "/images/disaster-cugenang.jpg",
       alt: `Penanganan darurat ${point.name}`,
@@ -585,6 +601,22 @@ export function DisasterListItem({
     });
   }
 
+  if (point.kind === "Distribution") {
+    const isStale = Boolean(point.isStale);
+    return renderCard({
+      title: point.name,
+      description: `Menuju ${point.destinationShelter || point.location}`,
+      status: isStale ? "Terakhir Terlihat" : "Dalam Perjalanan",
+      statusValue: isStale ? "warning" : "safe",
+      metaItems: [
+        point.lastLocationName ? `Posisi: ${point.lastLocationName}` : "",
+        isStale ? `Update ${updatedAt}` : `Diperbarui ${updatedAt}`,
+        point.progressPercent != null ? `${point.progressPercent}%` : "",
+      ],
+      ariaLabel: `Buka detail pelacakan armada ${point.name}`,
+    });
+  }
+
   // Standard Operational Disaster & Shelter Item
   return renderCard({
     title: point.name,
@@ -624,6 +656,7 @@ function DisasterGroupAccordion({
 }) {
   const containsSelected = points.some((p) => p.id === selectedPointId);
   const [isOpen, setIsOpen] = useState(defaultOpen);
+  const [visibleCount, setVisibleCount] = useState(5);
 
   useEffect(() => {
     if (containsSelected || isSearched) {
@@ -631,12 +664,36 @@ function DisasterGroupAccordion({
     }
   }, [containsSelected, isSearched]);
 
+  useEffect(() => {
+    if (selectedPointId) {
+      const idx = points.findIndex((p) => p.id === selectedPointId);
+      if (idx >= 0) {
+        setVisibleCount((prev) => Math.max(prev, Math.ceil((idx + 1) / 5) * 5));
+      }
+    }
+  }, [selectedPointId, points]);
+
+  const handleToggle = () => {
+    setIsOpen((prev) => {
+      const next = !prev;
+      if (!next) {
+        setVisibleCount(5);
+      }
+      return next;
+    });
+  };
+
+  const visiblePoints = points.slice(0, visibleCount);
+  const hasMore = visibleCount < points.length;
+  const remainingCount = points.length - visibleCount;
+  const nextStepCount = Math.min(5, remainingCount);
+
   return (
     <div className="disaster-accordion-group" data-open={isOpen}>
       <button
         type="button"
         className="disaster-accordion-trigger"
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={handleToggle}
         aria-expanded={isOpen}
         aria-controls={`accordion-panel-${id}`}
       >
@@ -664,7 +721,7 @@ function DisasterGroupAccordion({
         aria-hidden={!isOpen}
       >
         <div className="disaster-accordion-panel-inner">
-          {points.map((point) => (
+          {visiblePoints.map((point) => (
             <DisasterListItem
               key={point.id}
               point={point}
@@ -674,6 +731,35 @@ function DisasterGroupAccordion({
               isTextOnly={true}
             />
           ))}
+
+          {points.length > 5 && (
+            <div className="flex items-center justify-between gap-2 pt-1.5 pb-0.5 px-0.5">
+              {hasMore ? (
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 text-[11.5px] font-medium text-primary hover:underline transition-colors py-0.5 cursor-pointer"
+                  onClick={() => setVisibleCount((prev) => Math.min(prev + 5, points.length))}
+                >
+                  <span>+ Tampilkan {nextStepCount} lainnya</span>
+                  <span className="text-muted-foreground text-[10.5px]">({remainingCount} tersisa)</span>
+                </button>
+              ) : (
+                <span className="text-[11px] text-muted-foreground py-0.5">
+                  Semua {points.length} data ditampilkan
+                </span>
+              )}
+
+              {visibleCount > 5 && (
+                <button
+                  type="button"
+                  className="text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors ml-auto py-0.5 cursor-pointer"
+                  onClick={() => setVisibleCount(5)}
+                >
+                  Ciutkan ke 5
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -700,7 +786,32 @@ export function DisasterSidebar({
   );
 
   const volcanoPoints = useMemo(
-    () => sidebarPoints.filter((p) => p.kind === "Gunung Api"),
+    () =>
+      [...sidebarPoints.filter((p) => p.kind === "Gunung Api")].sort((a, b) => {
+        const hasEruptA = Boolean(a.eruptionReport?.time || a.eruptionReport?.description);
+        const hasEruptB = Boolean(b.eruptionReport?.time || b.eruptionReport?.description);
+        if (hasEruptA && hasEruptB) {
+          const timeA = getPointTimestamp(a);
+          const timeB = getPointTimestamp(b);
+          if (timeA !== timeB) return timeB - timeA;
+        } else if (hasEruptA !== hasEruptB) {
+          return hasEruptB ? 1 : -1;
+        }
+
+        const timeA = getPointTimestamp(a);
+        const timeB = getPointTimestamp(b);
+        if (timeA !== timeB) return timeB - timeA;
+
+        if (a.isErupting !== b.isErupting) {
+          return (b.isErupting ? 1 : 0) - (a.isErupting ? 1 : 0);
+        }
+
+        const sevA = a.status === "critical" ? 4 : a.status === "major" ? 3 : a.status === "warning" ? 2 : 1;
+        const sevB = b.status === "critical" ? 4 : b.status === "major" ? 3 : b.status === "warning" ? 2 : 1;
+        if (sevA !== sevB) return sevB - sevA;
+
+        return a.name.localeCompare(b.name);
+      }),
     [sidebarPoints],
   );
 
@@ -1003,6 +1114,202 @@ function VolcanoCctvSection({
   );
 }
 
+function LogisticsFleetDetailContent({
+  point,
+  updatedAt,
+  onClose,
+}: {
+  point: MapPoint;
+  updatedAt: string;
+  onClose: () => void;
+}) {
+  const isStale = Boolean(point.isStale);
+  const progress = point.progressPercent ?? 68;
+  const status = point.distributionStatus ?? "dalam-perjalanan";
+
+  const isDone = status === "diterima" || status === "diterima_posko" || status === "selesai";
+  const isArrived = status === "tiba_di_posko" || progress >= 95;
+  const isDeparted = status === "berangkat" || status === "dalam_perjalanan" || status === "dalam-perjalanan" || status === "tertunda" || isArrived || isDone;
+
+  const steps = [
+    {
+      title: "1. Bantuan Disiapkan di Gudang",
+      desc: "Logistik diverifikasi & dimuat ke armada",
+      state: "done" as const,
+    },
+    {
+      title: "2. Armada Berangkat",
+      desc: "Armada bertolak menuju posko tujuan",
+      state: (isDeparted ? "done" : "current") as "done" | "current" | "pending",
+    },
+    {
+      title: "3. Lokasi Terakhir Diperbarui",
+      desc: point.lastLocationName || "Pembaruan manual titik singgah di jalur distribusi",
+      state: (isDone ? "done" : isDeparted ? "current" : "pending") as "done" | "current" | "pending",
+      badge: isStale ? "Pembaruan > 30 mnt lalu" : "Terkonfirmasi",
+    },
+    {
+      title: "4. Armada Tiba di Posko",
+      desc: point.destinationShelter ? `Mencapai pekarangan ${point.destinationShelter}` : "Mencapai posko tujuan",
+      state: (isDone ? "done" : isArrived ? "current" : "pending") as "done" | "current" | "pending",
+    },
+    {
+      title: "5. Konfirmasi Penerimaan Bantuan",
+      desc: "Petugas posko mengonfirmasi barang diterima lengkap",
+      state: (isDone ? "done" : "pending") as "done" | "current" | "pending",
+    },
+  ];
+
+  return (
+    <div className="space-y-4">
+      {/* Header Banner */}
+      <div className="rounded-xl border border-border/80 bg-muted/30 p-3.5 space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <span className="inline-block rounded bg-sky-500/15 px-2 py-0.5 font-sans text-[11px] font-semibold text-sky-700 dark:text-sky-300">
+              {point.vehicleCode || "ARM-01"}
+            </span>
+            <h2 className="mt-1 font-heading text-[16px] font-bold text-foreground leading-snug">
+              {point.vehicleName || point.name}
+            </h2>
+            <p className="mt-0.5 font-sans text-[12px] text-muted-foreground">
+              Posko Tujuan: <span className="font-medium text-foreground">{point.destinationShelter || point.location}</span>
+            </p>
+          </div>
+          <Badge
+            variant={isStale ? "outline" : "default"}
+            className={cn(
+              "font-sans text-[10.5px] shrink-0 font-medium",
+              isStale
+                ? "border-amber-400 bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-700"
+                : "bg-sky-600 text-white dark:bg-sky-500"
+            )}
+          >
+            {isStale ? "Terakhir Terlihat" : "Dalam Perjalanan"}
+          </Badge>
+        </div>
+
+        {/* Stale or Fresh Alert Callout */}
+        <div
+          className={cn(
+            "rounded-lg border p-2.5 font-sans text-[11.5px] leading-relaxed",
+            isStale
+              ? "border-amber-200 bg-amber-500/10 text-amber-900 dark:text-amber-200 dark:border-amber-800"
+              : "border-sky-200 bg-sky-500/10 text-sky-900 dark:text-sky-200 dark:border-sky-800"
+          )}
+        >
+          <div className="font-semibold">
+            {isStale ? "Model Last Known Update" : "Posisi Checkpoint Aktif"}
+          </div>
+          <p className="mt-1">
+            {isStale
+              ? `Lokasi terakhir diperbarui ${point.updatedAt} di "${point.lastLocationName || point.location}". Sistem sedang menunggu pembaruan checkpoint dari supir armada.`
+              : `Lokasi terakhir diperbarui ${point.updatedAt} di "${point.lastLocationName || point.location}".`}
+          </p>
+        </div>
+
+        {/* Progress & ETA */}
+        <div className="space-y-1.5 pt-1">
+          <div className="flex items-center justify-between font-sans text-[11.5px]">
+            <span className="text-muted-foreground">
+              Estimasi Tiba (ETA): <strong className="text-foreground">{point.etaText || "Dalam jadwal"}</strong>
+            </span>
+            <span className="font-semibold text-foreground font-mono">{progress}%</span>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              className={cn(
+                "h-full rounded-full transition-all duration-500",
+                isStale ? "bg-amber-500" : "bg-sky-600"
+              )}
+              style={{ width: `${Math.min(100, Math.max(5, progress))}%` }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Muatan & Detail Logistik */}
+      <div className="rounded-xl border border-border/80 p-3.5 space-y-2">
+        <h3 className="font-heading text-[13px] font-bold uppercase tracking-wider text-foreground">
+          Rincian Bantuan & Muatan
+        </h3>
+        <div className="rounded-lg bg-muted/40 p-2.5 font-sans text-[12px] leading-relaxed border border-border/60">
+          <span className="font-semibold text-foreground">Muatan Barang: </span>
+          {point.cargoSummary || point.detail}
+        </div>
+        {point.driverNote && (
+          <div className="rounded-lg bg-muted/20 p-2.5 font-sans text-[11.5px] leading-relaxed border border-dashed border-border/80 text-foreground/90">
+            <span className="font-semibold text-muted-foreground block text-[10.5px] uppercase tracking-wider">
+              Catatan Lapangan Supir:
+            </span>
+            &ldquo;{point.driverNote}&rdquo;
+          </div>
+        )}
+      </div>
+
+      {/* Status Timeline (5 Stages Flow) */}
+      <div className="rounded-xl border border-border/80 p-3.5 space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="font-heading text-[13px] font-bold uppercase tracking-wider text-foreground">
+            Alur Tracking Perjalanan
+          </h3>
+          <span className="font-sans text-[10.5px] text-muted-foreground">5 Tahap Transparan</span>
+        </div>
+
+        <div className="relative pl-6 space-y-3.5 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-border">
+          {steps.map((step, idx) => {
+            const isDone = step.state === "done";
+            const isCurrent = step.state === "current";
+
+            return (
+              <div key={idx} className="relative">
+                <div
+                  className={cn(
+                    "absolute -left-6 top-0.5 size-5 rounded-full flex items-center justify-center font-sans text-[10px] font-bold border",
+                    isDone
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : isCurrent
+                        ? "bg-sky-600 text-white border-sky-600 ring-4 ring-sky-500/20"
+                        : "bg-muted text-muted-foreground border-border"
+                  )}
+                >
+                  {isDone ? "✓" : idx + 1}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h4
+                      className={cn(
+                        "font-heading text-[12.5px] font-semibold",
+                        isCurrent
+                          ? "text-sky-700 dark:text-sky-300"
+                          : isDone
+                            ? "text-foreground"
+                            : "text-muted-foreground"
+                      )}
+                    >
+                      {step.title}
+                    </h4>
+                    {step.badge && (
+                      <span className="rounded bg-muted px-1.5 py-0.5 font-sans text-[9.5px] font-medium text-muted-foreground">
+                        {step.badge}
+                      </span>
+                    )}
+                  </div>
+                  <p className="font-sans text-[11px] text-muted-foreground mt-0.5 leading-normal">
+                    {step.desc}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+
+    </div>
+  );
+}
+
 export function DisasterDetailPanel({
   point,
   points,
@@ -1081,7 +1388,15 @@ export function DisasterDetailPanel({
 
       <ScrollArea className="mobile-sheet-scroll min-h-0 flex-1">
         <div className="p-4 space-y-4">
-          {point.kind !== "Gempa" && point.kind !== "Gunung Api" && !hasDedicatedMedia && meta?.image?.src && (
+          {point.kind === "Distribution" ? (
+            <LogisticsFleetDetailContent
+              point={point}
+              updatedAt={updatedAt}
+              onClose={onClose}
+            />
+          ) : (
+            <>
+              {point.kind !== "Gempa" && point.kind !== "Gunung Api" && !hasDedicatedMedia && meta?.image?.src && (
             <div className="relative aspect-[16/9] w-full overflow-hidden rounded-lg border border-border/80 shadow-xs">
               <img
                 src={meta.image.src}
@@ -1107,7 +1422,7 @@ export function DisasterDetailPanel({
             </div>
             <div>
               <span className="block text-[10.5px] uppercase tracking-wider text-muted-foreground font-medium">Pembaruan</span>
-              <strong className="mt-0.5 block font-medium text-foreground text-[12px]">{updatedAt}</strong>
+              <strong className="mt-0.5 block font-medium text-foreground text-[12px]">{updatedAt || (point.kind === "Gunung Api" ? "Status Resmi PVMBG" : "Berkala")}</strong>
             </div>
             <div className="col-span-2 pt-1">
               <span className="block text-[10.5px] uppercase tracking-wider text-muted-foreground font-medium">Dampak</span>
@@ -1325,6 +1640,8 @@ export function DisasterDetailPanel({
               ) : null}
             </div>
           ) : null}
+            </>
+          )}
         </div>
       </ScrollArea>
     </Card>

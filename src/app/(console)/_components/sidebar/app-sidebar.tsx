@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ShieldAlert } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 
 import {
@@ -18,10 +17,9 @@ import { rootUser } from "@/data/users";
 import { sidebarItems } from "@/navigation/sidebar/sidebar-items";
 import { usePreferencesStore } from "@/stores/preferences/preferences-provider";
 
-import type { AppRole } from "@/lib/auth";
+import type { AppRole } from "@/lib/auth-types";
 import { NavMain } from "./nav-main";
 import { NavUser } from "./nav-user";
-import { SupportCard } from "./support-card";
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   user?: {
@@ -47,7 +45,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
 
   return (
     <Sidebar {...props} variant={variant} collapsible={collapsible}>
-      <SidebarHeader className="p-2 group-data-[collapsible=icon]:p-2">
+      <SidebarHeader className="p-3 group-data-[collapsible=icon]:p-2">
         <SidebarMenu>
           <SidebarMenuItem className="flex items-center justify-center">
             <SidebarMenuButton
@@ -55,8 +53,11 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
               asChild
               className="h-10 px-2 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-1.5! group-data-[collapsible=icon]:justify-center hover:bg-sidebar-accent"
             >
-              <Link prefetch={false} href="/dashboard" className="flex items-center">
-                {/* Tampilan saat Sidebar Terbuka */}
+              <Link
+                prefetch={false}
+                href="/dashboard"
+                className="flex items-center"
+              >
                 <div className="relative h-8 w-36 overflow-hidden group-data-[collapsible=icon]:hidden">
                   <Image
                     src="/brand/logo-siagakita.png"
@@ -68,7 +69,6 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
                   />
                 </div>
 
-                {/* Tampilan saat Sidebar Collapsed */}
                 <div className="relative hidden size-5 shrink-0 items-center justify-center overflow-hidden group-data-[collapsible=icon]:flex">
                   <Image
                     src="/brand/logo-siagakita-icon.png"
@@ -87,8 +87,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
       <SidebarContent>
         <NavMain items={sidebarItems} role={user?.appRole} />
       </SidebarContent>
-      <SidebarFooter>
-        <SupportCard />
+      <SidebarFooter className="p-2">
         <NavUser user={user ?? rootUser} />
       </SidebarFooter>
     </Sidebar>

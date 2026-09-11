@@ -35,7 +35,7 @@ export function PageHeader({
           {eyebrow ? <p className="text-[0.72rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{eyebrow}</p> : null}
           {status ? <Badge variant="outline" className="rounded-full border-primary/20 bg-primary/8 text-primary">{status}</Badge> : null}
         </div> : null}
-        <h1 className={cn("text-balance text-2xl font-semibold tracking-[-0.035em] sm:text-3xl", hasMeta && "mt-1")}>{title}</h1>
+        <h1 className={cn("font-heading text-balance text-2xl font-semibold tracking-[-0.035em] sm:text-3xl", hasMeta && "mt-1")}>{title}</h1>
         <p className="mt-2 max-w-3xl text-pretty text-sm leading-6 text-muted-foreground">{description}</p>
       </div>
       {actions ? <div className="flex shrink-0 flex-wrap gap-2 lg:justify-end">{actions}</div> : null}

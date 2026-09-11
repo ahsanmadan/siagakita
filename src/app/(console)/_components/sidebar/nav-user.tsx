@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { CircleUser, EllipsisVertical, LogOut, ShieldCheck, User } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -34,9 +35,9 @@ export function NavUser({
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:justify-center"
+              className="h-12 rounded-lg px-2.5 transition-colors data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:justify-center"
             >
-              <Avatar className="size-8 rounded-lg shrink-0 border border-border/60 bg-muted flex items-center justify-center">
+              <Avatar className="size-8 shrink-0 rounded-lg border border-border/60 bg-muted flex items-center justify-center">
                 {user.avatar ? (
                   <AvatarImage src={user.avatar} alt={user.name} className="object-cover" />
                 ) : null}
@@ -45,21 +46,21 @@ export function NavUser({
                 </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
-                <span className="truncate font-medium">{user.name}</span>
-                <span className="truncate text-muted-foreground text-xs">{user.email}</span>
+                <span className="truncate font-semibold text-xs text-foreground">{user.name}</span>
+                <span className="truncate text-muted-foreground text-[11px] font-sans">{user.email}</span>
               </div>
-              <EllipsisVertical className="ml-auto size-4 group-data-[collapsible=icon]:hidden" />
+              <EllipsisVertical className="ml-auto size-4 text-muted-foreground group-data-[collapsible=icon]:hidden" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
-            side={isMobile ? "bottom" : "right"}
-            align="end"
-            sideOffset={4}
+            className="w-[280px] rounded-xl p-1.5 shadow-lg border border-border/80 bg-popover font-sans"
+            side={isMobile ? "bottom" : "top"}
+            align="start"
+            sideOffset={8}
           >
             <DropdownMenuLabel className="p-0 font-normal">
-              <div className="flex items-center gap-2.5 px-2 py-2 text-left text-sm">
-                <Avatar className="h-9 w-9 rounded-lg shrink-0 border border-border/60 bg-muted flex items-center justify-center">
+              <div className="flex items-center gap-2.5 px-2.5 py-2.5 text-left">
+                <Avatar className="size-9 shrink-0 rounded-lg border border-border/60 bg-muted flex items-center justify-center">
                   {user.avatar ? (
                     <AvatarImage src={user.avatar} alt={user.name} className="object-cover" />
                   ) : null}
@@ -67,35 +68,53 @@ export function NavUser({
                     <User className="size-4.5 text-foreground/80" />
                   </AvatarFallback>
                 </Avatar>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold text-foreground">{user.name}</span>
-                  <span className="truncate text-muted-foreground text-xs">{user.email}</span>
-                  {user.role ? (
-                    <div className="mt-1">
-                      <span className="inline-flex items-center rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary border border-primary/20">
+                <div className="grid flex-1 text-left leading-tight min-w-0">
+                  <span className="truncate font-display font-semibold text-xs text-foreground">
+                    {user.name}
+                  </span>
+                  <span className="truncate text-muted-foreground text-[11px] font-sans mt-0.5">
+                    {user.email}
+                  </span>
+                  {user.role && (
+                    <div className="mt-1.5">
+                      <span className="inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-foreground/80 border border-border/60 font-sans">
                         {user.role}
                       </span>
                     </div>
-                  ) : null}
+                  )}
                 </div>
               </div>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
+            <DropdownMenuSeparator className="my-1" />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <CircleUser className="size-4 mr-2" />
-                Profil Petugas
+              <DropdownMenuItem asChild className="cursor-pointer text-xs font-sans py-2 px-2.5 rounded-lg">
+                <Link href="/akun" className="flex items-center gap-2.5 w-full">
+                  <CircleUser className="size-4 text-muted-foreground shrink-0" />
+                  <span>Profil Petugas</span>
+                </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <ShieldCheck className="size-4 mr-2" />
-                Hak Akses: {user.role || "Operator"}
+              <DropdownMenuItem asChild className="cursor-pointer text-xs font-sans py-2 px-2.5 rounded-lg">
+                <Link href="/akun" className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-2.5">
+                    <ShieldCheck className="size-4 text-muted-foreground shrink-0" />
+                    <span>Hak Akses</span>
+                  </div>
+                  {user.role && (
+                    <span className="text-[10px] text-muted-foreground font-mono bg-muted/60 px-1.5 py-0.5 rounded border border-border/40">
+                      {user.role}
+                    </span>
+                  )}
+                </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
-            <DropdownMenuSeparator />
+            <DropdownMenuSeparator className="my-1" />
             <form action={signOutAction} className="w-full">
-              <DropdownMenuItem asChild className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10">
-                <button type="submit" className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm">
-                  <LogOut className="size-4" />
+              <DropdownMenuItem
+                asChild
+                className="cursor-pointer text-xs font-sans py-2 px-2.5 rounded-lg text-red-600 dark:text-red-400 focus:text-red-700 dark:focus:text-red-300 focus:bg-red-500/10"
+              >
+                <button type="submit" className="flex w-full items-center gap-2.5 text-left">
+                  <LogOut className="size-4 text-red-600/80 dark:text-red-400/80 shrink-0" />
                   <span>Keluar Akun</span>
                 </button>
               </DropdownMenuItem>

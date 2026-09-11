@@ -13,7 +13,7 @@ export default function LaporanLoading() {
       <PageHeaderSkeleton />
       <KpiCardsSkeleton />
 
-      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(19rem,0.6fr)]">
+      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_360px] items-start">
         {/* Antrean triase laporan masuk */}
         <Card className="overflow-hidden shadow-xs">
           <CardHeader className="gap-3 py-4">

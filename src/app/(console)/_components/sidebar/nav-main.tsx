@@ -5,7 +5,16 @@ import { usePathname } from "next/navigation";
 import { ChevronRight, PlusCircleIcon, Radio } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,7 +36,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
-import type { AppRole } from "@/lib/auth";
+import type { AppRole } from "@/lib/auth-types";
 import { roleNavigation } from "@/lib/role-ui";
 import type {
   NavBadge,
@@ -146,44 +155,56 @@ export function NavMain({ items, role }: NavMainProps) {
 
   return (
     <>
-      <SidebarGroup>
+      <SidebarGroup className="py-2">
         <SidebarGroupContent className="flex flex-col gap-2">
           <SidebarMenu>
             <SidebarMenuItem className="flex items-center gap-2 group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:justify-center">
               <SidebarMenuButton
                 asChild
                 tooltip={quickAction.tooltip}
-                className="min-w-8 bg-primary text-primary-foreground duration-200 ease-linear hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground"
+                className="h-11 min-w-8 bg-primary px-3 font-semibold text-primary-foreground transition-colors hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground dark:bg-sidebar-accent dark:text-sidebar-foreground dark:border dark:border-sidebar-border dark:hover:bg-sidebar-accent/80 dark:hover:border-sidebar-border/80 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-0!"
               >
                 <Link href={quickAction.url}>
                   <PlusCircleIcon />
                   <span>{quickAction.title}</span>
                 </Link>
               </SidebarMenuButton>
-              <Button
-                asChild
-                size="icon"
-                className="h-9 w-9 shrink-0 group-data-[collapsible=icon]:hidden"
-                variant="outline"
-              >
-                <Link href="/peta-publik" target="_blank" title="Buka Peta Live">
-                  <Radio className="size-4 text-red-500 animate-pulse" />
-                  <span className="sr-only">Live Peta</span>
-                </Link>
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    asChild
+                    size="icon"
+                    className="size-11 shrink-0 border-border/70 text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground group-data-[collapsible=icon]:hidden"
+                    variant="outline"
+                  >
+                    <Link
+                      href="/peta-publik"
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label="Pantau Peta Publik Real-time (Buka di tab baru)"
+                    >
+                      <Radio className="size-4 text-muted-foreground/80 transition-colors group-hover:text-foreground" />
+                      <span className="sr-only">Pantau Peta Publik Real-time</span>
+                    </Link>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="font-sans text-xs">
+                  Pantau Peta Publik Real-time (Tab Baru)
+                </TooltipContent>
+              </Tooltip>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>
       {filteredGroups.map((group) => (
-        <SidebarGroup key={group.id}>
+        <SidebarGroup key={group.id} className="py-1.5">
           {group.label && (
-            <SidebarGroupLabel className="group-data-[collapsible=icon]:pointer-events-none">
+            <SidebarGroupLabel className="h-7 px-2.5 text-[11px] font-semibold text-sidebar-foreground/65 group-data-[collapsible=icon]:pointer-events-none">
               {group.label}
             </SidebarGroupLabel>
           )}
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-0.5">
               {group.items.map((item) => (
                 <NavItem
                   key={item.id}
@@ -201,16 +222,33 @@ export function NavMain({ items, role }: NavMainProps) {
   );
 }
 
-function NavItem({ item, isItemActive, isSubItemActive, isSubmenuOpen }: NavItemProps) {
+function NavItem({
+  item,
+  isItemActive,
+  isSubItemActive,
+  isSubmenuOpen,
+}: NavItemProps) {
   const { state, isMobile } = useSidebar();
   const isCollapsedDesktop = state === "collapsed" && !isMobile;
 
   if (!hasSubItems(item)) {
-    return <NavLinkItem item={item} isActive={isItemActive(item)} showIconFallback={isCollapsedDesktop} />;
+    return (
+      <NavLinkItem
+        item={item}
+        isActive={isItemActive(item)}
+        showIconFallback={isCollapsedDesktop}
+      />
+    );
   }
 
   if (isCollapsedDesktop) {
-    return <NavDropdownItem item={item} isActive={isItemActive(item)} isSubItemActive={isSubItemActive} />;
+    return (
+      <NavDropdownItem
+        item={item}
+        isActive={isItemActive(item)}
+        isSubItemActive={isSubItemActive}
+      />
+    );
   }
 
   return (
@@ -226,14 +264,22 @@ function NavItem({ item, isItemActive, isSubItemActive, isSubmenuOpen }: NavItem
 function NavLinkItem({ item, isActive, showIconFallback }: NavLinkItemProps) {
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton asChild aria-disabled={item.disabled} tooltip={item.title} isActive={isActive}>
+      <SidebarMenuButton
+        asChild
+        aria-disabled={item.disabled}
+        tooltip={item.title}
+        isActive={isActive}
+        className="relative h-10.5 gap-3 rounded-lg px-3 text-xs font-normal text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-foreground data-[active=true]:bg-sidebar-accent/90 data-[active=true]:font-medium data-[active=true]:text-foreground before:absolute before:left-0 before:top-2.5 before:bottom-2.5 before:w-[3px] before:rounded-r-full before:bg-primary before:opacity-0 data-[active=true]:before:opacity-100 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:justify-center"
+      >
         <Link
           href={item.url}
           target={item.newTab ? "_blank" : undefined}
           rel={item.newTab ? "noreferrer" : undefined}
+          aria-current={isActive ? "page" : undefined}
+          className="flex items-center w-full"
         >
           <NavLinkIcon item={item} showFallback={showIconFallback} />
-          <span>{item.title}</span>
+          <span className="truncate">{item.title}</span>
         </Link>
       </SidebarMenuButton>
       <NavItemBadge badge={item.badge} />
@@ -245,7 +291,9 @@ function NavLinkIcon({ item, showFallback }: NavLinkIconProps) {
   const Icon = item.icon;
 
   if (Icon) {
-    return <Icon />;
+    return (
+      <Icon className="size-4 shrink-0 text-muted-foreground/90 group-data-[active=true]/menu-button:text-foreground" />
+    );
   }
 
   if (showFallback) {
@@ -255,31 +303,51 @@ function NavLinkIcon({ item, showFallback }: NavLinkIconProps) {
   return null;
 }
 
-function NavDropdownItem({ item, isActive, isSubItemActive }: NavDropdownItemProps) {
+function NavDropdownItem({
+  item,
+  isActive,
+  isSubItemActive,
+}: NavDropdownItemProps) {
   const Icon = item.icon;
 
   return (
     <SidebarMenuItem>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <SidebarMenuButton tooltip={item.title} isActive={isActive} disabled={item.disabled}>
+          <SidebarMenuButton
+            tooltip={item.title}
+            isActive={isActive}
+            disabled={item.disabled}
+            className="relative size-8 transition-colors data-[active=true]:bg-sidebar-accent data-[active=true]:font-semibold"
+          >
             {Icon ? <Icon /> : <CollapsedIconFallback title={item.title} />}
             <span>{item.title}</span>
           </SidebarMenuButton>
         </DropdownMenuTrigger>
 
-        <DropdownMenuContent side="right" align="start" sideOffset={12} className="w-48">
+        <DropdownMenuContent
+          side="right"
+          align="start"
+          sideOffset={12}
+          className="w-48"
+        >
           <DropdownMenuGroup>
             {item.subItems.map((subItem) => {
               const SubIcon = subItem.icon;
 
               return (
-                <DropdownMenuItem key={subItem.id} asChild disabled={subItem.disabled}>
+                <DropdownMenuItem
+                  key={subItem.id}
+                  asChild
+                  disabled={subItem.disabled}
+                >
                   <Link
                     href={subItem.url}
                     target={subItem.newTab ? "_blank" : undefined}
                     rel={subItem.newTab ? "noreferrer" : undefined}
-                    aria-current={isSubItemActive(subItem.url) ? "page" : undefined}
+                    aria-current={
+                      isSubItemActive(subItem.url) ? "page" : undefined
+                    }
                     className="flex items-center gap-2"
                   >
                     {SubIcon && <SubIcon />}
@@ -295,14 +363,28 @@ function NavDropdownItem({ item, isActive, isSubItemActive }: NavDropdownItemPro
   );
 }
 
-function NavCollapsibleItem({ item, isActive, defaultOpen, isSubItemActive }: NavCollapsibleItemProps) {
+function NavCollapsibleItem({
+  item,
+  isActive,
+  defaultOpen,
+  isSubItemActive,
+}: NavCollapsibleItemProps) {
   const Icon = item.icon;
 
   return (
-    <Collapsible asChild defaultOpen={defaultOpen} className="group/collapsible">
+    <Collapsible
+      asChild
+      defaultOpen={defaultOpen}
+      className="group/collapsible"
+    >
       <SidebarMenuItem>
         <CollapsibleTrigger asChild>
-          <SidebarMenuButton tooltip={item.title} isActive={isActive} disabled={item.disabled}>
+          <SidebarMenuButton
+            tooltip={item.title}
+            isActive={isActive}
+            disabled={item.disabled}
+            className="relative h-11 gap-2.5 px-2.5 transition-colors after:absolute after:inset-y-2 after:left-0 after:w-px after:rounded-full data-[active=true]:bg-sidebar-accent data-[active=true]:font-semibold data-[active=true]:after:bg-primary"
+          >
             {Icon && <Icon />}
             <span>{item.title}</span>
             <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
@@ -321,6 +403,7 @@ function NavCollapsibleItem({ item, isActive, defaultOpen, isSubItemActive }: Na
                     asChild
                     aria-disabled={subItem.disabled}
                     isActive={isSubItemActive(subItem.url)}
+                    className="h-10 transition-colors data-[active=true]:font-semibold"
                   >
                     <Link
                       href={subItem.url}
@@ -346,20 +429,29 @@ function NavItemBadge({ badge }: { badge?: NavBadge }) {
     return null;
   }
 
+  const label =
+    badge === "new"
+      ? "New"
+      : badge === "live"
+        ? "Live"
+        : badge === "darurat"
+          ? "Darurat"
+          : "Segera";
+
   return (
     <SidebarMenuBadge
       className={cn(
-        "rounded-sm border capitalize text-[10px] px-1.5 py-0",
+        "right-2.5 h-5 min-w-0 rounded-md border px-1.5 py-0 text-[10px] font-sans font-medium",
         badge === "new" &&
-          "border-emerald-600 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400",
+          "border-emerald-600/40 bg-emerald-500/10 text-emerald-700 dark:border-emerald-400/40 dark:text-emerald-400",
         badge === "live" &&
-          "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400 font-bold",
+          "border-blue-600/40 bg-blue-500/10 text-blue-700 dark:border-blue-400/40 dark:text-blue-400",
         badge === "darurat" &&
-          "border-red-600 text-red-600 dark:border-red-400 dark:text-red-400 font-bold animate-pulse",
-        badge === "soon" && "border-muted-foreground text-muted-foreground",
+          "border-red-600/40 bg-red-500/10 text-red-700 dark:border-red-400/40 dark:text-red-400",
+        badge === "soon" && "border-muted-foreground/40 text-muted-foreground",
       )}
     >
-      {badge}
+      {label}
     </SidebarMenuBadge>
   );
 }

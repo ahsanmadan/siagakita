@@ -42,7 +42,7 @@ export function SectionCards({ items }: { items: SectionCardItem[] }) {
                 </span>
                 {item.label}
               </CardDescription>
-              <CardTitle className="data-number text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+              <CardTitle className="data-number font-kpi text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
                 {item.value}
               </CardTitle>
               {item.delta && DeltaIcon ? (

@@ -45,7 +45,7 @@ Platform tanggap darurat berbasis spasial real-time yang dilengkapi kapabilitas 
 
 - **Identitas:** SiagaKita — bagian dari inisiatif SI-TANGGAP KRISIS untuk kompetisi KMIPN VIII.
 - **Tone & Voice:** Formal, tanggap, berwibawa, terpercaya, dan humanis. Menghindari nada santai, playful, atau bergaya aplikasi e-commerce/donasi komersial.
-- **Aset Resmi:** Logo resmi SiagaKita (`/brand/logo-siagakita.png`), tipografi modern yang jelas dan mudah dipindai (Geist / Inter / Outfit).
+- **Aset Resmi:** Logo resmi SiagaKita (`/brand/logo-siagakita.png`), Plus Jakarta Sans untuk judul besar dan KPI, serta Inter untuk teks antarmuka lainnya.
 
 ## Evidence on Hand
 

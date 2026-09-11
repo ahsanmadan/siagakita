@@ -11,6 +11,7 @@ export interface MapLayerState {
   volcanoLevel2: boolean;
   volcanoLevel3: boolean;
   volcanoLevel4: boolean;
+  logisticsFleet: boolean;
 }
 
 export const DEFAULT_MAP_LAYERS: MapLayerState = {
@@ -19,6 +20,7 @@ export const DEFAULT_MAP_LAYERS: MapLayerState = {
   volcanoLevel2: true,
   volcanoLevel3: true,
   volcanoLevel4: true,
+  logisticsFleet: true,
 };
 
 interface MapLayerControlProps {
@@ -28,7 +30,8 @@ interface MapLayerControlProps {
 }
 
 const LAYER_OPTIONS: Array<{ key: keyof MapLayerState; label: string }> = [
-  { key: "earthquake", label: "Gempa Bumi" },
+  { key: "logisticsFleet", label: "Mobil Logistik (Armada Terakhir)" },
+  { key: "earthquake", label: "Gempa Bumi (BMKG)" },
   { key: "volcanoLevel1", label: "Gunung Api - Level I (Normal)" },
   { key: "volcanoLevel2", label: "Gunung Api - Level II (Waspada)" },
   { key: "volcanoLevel3", label: "Gunung Api - Level III (Siaga)" },
@@ -49,15 +52,14 @@ export function MapLayerControl({
           <button
             type="button"
             className={cn(
-              "group relative flex size-11 items-center justify-center rounded-xl border border-border/80 bg-card text-foreground shadow-md transition-all duration-200 hover:scale-105 hover:border-border hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95 cursor-pointer",
-              isOpen && "ring-2 ring-primary/40 border-primary/50 shadow-primary/10",
+              "public-map-control-button group relative grid size-11 place-items-center rounded-xl border border-border bg-card text-foreground shadow-sm transition-colors after:absolute after:-inset-1 after:content-[''] hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring active:bg-muted/80 cursor-pointer",
+              isOpen && "border-primary/50 ring-2 ring-primary/30",
             )}
-            aria-label="Pilih lapisan peta yang ingin ditampilkan"
-            title="Pilih Lapisan Peta"
+            aria-label="Atur layer peta"
+            title="Atur layer peta"
           >
-            {/* 3D Stacked isometric layers icon matching reference */}
             <svg
-              className="size-6 text-foreground/80 transition-transform duration-200 group-hover:scale-105"
+              className="size-5 text-foreground/80"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"

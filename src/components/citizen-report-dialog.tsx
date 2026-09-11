@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -15,7 +15,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
-  AlertCircle,
   AlertTriangle,
   Camera,
   CheckCircle2,
@@ -28,6 +27,7 @@ import {
   Waypoints,
 } from "lucide-react";
 import { submitCitizenReportAction, type CitizenReportInput } from "@/lib/actions/citizen-report";
+import { PublicMapStatus } from "@/components/public-map-status";
 
 type Step = "category" | "form" | "success";
 
@@ -43,6 +43,7 @@ export function CitizenReportDialog({ trigger }: { trigger?: React.ReactNode }) 
   const nameInputId = useId();
   const phoneInputId = useId();
   const notesInputId = useId();
+  const reportFormId = useId();
 
   // Form State
   const [category, setCategory] = useState<CitizenReportInput["category"]>("sar_evakuasi");
@@ -94,15 +95,16 @@ export function CitizenReportDialog({ trigger }: { trigger?: React.ReactNode }) 
     );
   };
 
-  useEffect(() => {
-    if (open) {
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (nextOpen) {
       requestGps();
     } else {
       setStep("category");
       setResultCode(null);
       setFormError(null);
     }
-  }, [open]);
+  };
 
   const handleSelectCategory = (cat: CitizenReportInput["category"]) => {
     setCategory(cat);
@@ -152,7 +154,7 @@ export function CitizenReportDialog({ trigger }: { trigger?: React.ReactNode }) 
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         {trigger || (
           <Button
@@ -222,12 +224,16 @@ export function CitizenReportDialog({ trigger }: { trigger?: React.ReactNode }) 
           )}
         </div>
 
-        {/* Error Alert Box */}
         {formError && (
-          <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive font-medium">
-            <AlertCircle className="size-4 shrink-0" />
-            <span>{formError}</span>
-          </div>
+          <PublicMapStatus
+            compact
+            tone="critical"
+            title="Laporan belum dapat dikirim"
+            description={`${formError} Data yang sudah diisi tetap tersimpan di formulir.`}
+            actionLabel={step === "form" ? "Coba kirim lagi" : undefined}
+            onAction={step === "form" ? () => (document.getElementById(reportFormId) as HTMLFormElement | null)?.requestSubmit() : undefined}
+            loading={isSubmitting}
+          />
         )}
 
         {/* STEP 1: CATEGORY SELECTION */}
@@ -313,7 +319,7 @@ export function CitizenReportDialog({ trigger }: { trigger?: React.ReactNode }) 
 
         {/* STEP 2: DETAIL FORM */}
         {step === "form" && (
-          <form onSubmit={handleSubmit} className="space-y-4 pt-1">
+          <form id={reportFormId} onSubmit={handleSubmit} className="space-y-4 pt-1">
             <div className="flex items-center justify-between pb-2 border-b">
               <Badge variant="secondary" className="gap-1 text-xs">
                 {category === "sar_evakuasi" && "Evakuasi Jiwa / Tertimbun"}

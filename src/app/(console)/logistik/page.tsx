@@ -2,6 +2,8 @@ import {
   Boxes,
   Building2,
   CircleDollarSign,
+  FileCheck,
+  MapPin,
   PackageCheck,
   Truck,
   Warehouse,
@@ -9,6 +11,7 @@ import {
 import { ActionForm } from "@/components/action-form";
 import { AllocationDialog } from "@/components/allocation-dialog";
 import { ConfirmMutationAction } from "@/components/confirm-mutation-action";
+import { FleetCheckpointDialog } from "@/components/fleet-checkpoint-dialog";
 import { MutationAction } from "@/components/mutation-action";
 import { RecommendationCard } from "@/components/recommendation-card";
 import { SubmitButton } from "@/components/submit-button";
@@ -49,11 +52,21 @@ import {
   type ThirdPartyAid,
   type WarehouseOption,
 } from "@/lib/repositories/operations";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-const statusLabels = {
+const statusLabels: Record<string, string> = {
+  menunggu_alokasi: "Menunggu Alokasi",
+  dialokasikan: "Armada Dialokasikan",
   disiapkan: "Disiapkan",
+  berangkat: "Berangkat",
+  dalam_perjalanan: "Dalam Perjalanan",
   "dalam-perjalanan": "Dalam Perjalanan",
+  tertunda: "Tertunda",
+  tiba_di_posko: "Tiba di Posko",
+  diterima_posko: "Diterima Posko",
   diterima: "Diterima",
+  selesai: "Selesai",
+  dibatalkan: "Dibatalkan",
 };
 
 const aidStatusLabels: Record<ThirdPartyAid["status"], string> = {
@@ -132,13 +145,87 @@ export default async function LogisticsPage() {
   const profile = await requireRole(["admin", "bpbd_operator", "warehouse_manager"], "/dashboard");
   const capabilities = roleCapabilities(profile.role);
   const {
-    distributions,
+    distributions: baseDistributions,
     inventory,
     recommendations,
     shelters,
     thirdPartyAids,
     warehouses,
   } = await getOperationsData();
+
+  const supabase = await createSupabaseServerClient();
+  const { data: rawPods } = await supabase
+    .from("proof_of_delivery")
+    .select("*, operational_attachments(*)")
+    .order("created_at", { ascending: false });
+
+  const podByDistId = new Map<string, any>();
+  if (rawPods) {
+    for (const pod of rawPods) {
+      if (pod.distribution_id) podByDistId.set(pod.distribution_id, pod);
+    }
+  }
+
+  const distributions = baseDistributions.map((d) => {
+    const pod = podByDistId.get(d.id);
+    if (!pod) return d;
+    const rawAttach = pod.operational_attachments as Record<string, any> | undefined;
+    const podAttachment = rawAttach ? {
+      id: rawAttach.id,
+      module: rawAttach.module,
+      entityType: rawAttach.entity_type,
+      entityId: rawAttach.entity_id,
+      fileBucket: rawAttach.file_bucket,
+      filePath: rawAttach.file_path,
+      originalFileName: rawAttach.original_file_name,
+      mimeType: rawAttach.mime_type,
+      fileSize: rawAttach.file_size ? Number(rawAttach.file_size) : null,
+      visibility: rawAttach.visibility,
+      description: rawAttach.description,
+      caption: rawAttach.caption,
+      metadata: rawAttach.metadata || {},
+      uploadedBy: rawAttach.uploaded_by,
+      uploadedAt: rawAttach.uploaded_at || rawAttach.created_at,
+      createdAt: rawAttach.created_at,
+      updatedAt: rawAttach.updated_at,
+    } : pod.proof_path ? {
+      id: `legacy-${pod.id}`,
+      module: "deliveries",
+      entityType: "proof_of_delivery",
+      entityId: pod.id,
+      fileBucket: "operational_evidence",
+      filePath: pod.proof_path,
+      originalFileName: pod.proof_path.split("/").pop() || "bukti-penerimaan.jpg",
+      mimeType: "image/jpeg",
+      fileSize: null,
+      visibility: "internal" as const,
+      description: pod.receiver_note || "Bukti serah terima bantuan posko (legacy)",
+      caption: null,
+      metadata: {},
+      uploadedBy: pod.created_by,
+      uploadedAt: pod.created_at,
+      createdAt: pod.created_at,
+      updatedAt: pod.created_at,
+    } : null;
+
+    return {
+      ...d,
+      proofOfDelivery: {
+        id: pod.id,
+        distributionId: pod.distribution_id,
+        shelterId: pod.shelter_id,
+        receivedBy: pod.received_by,
+        receivedByProfileId: pod.received_by_profile_id,
+        receivedAt: pod.received_at,
+        receiverNote: pod.receiver_note,
+        proofPath: pod.proof_path,
+        attachmentId: pod.attachment_id,
+        attachment: podAttachment,
+        createdBy: pod.created_by,
+        createdAt: pod.created_at,
+      },
+    };
+  });
 
   const availableItemTypes = inventory.filter((item) => item.stock - item.reserved > 0).length;
   const activeDistributions = distributions.filter((item) => item.status !== "diterima").length;
@@ -151,7 +238,12 @@ export default async function LogisticsPage() {
   const allocationPrefill = logisticsRecommendation
     ? buildAllocationPrefill(logisticsRecommendation, shelters, inventory)
     : null;
-  const shelterOptions = shelters.map((shelter) => ({ id: shelter.id, name: shelter.name }));
+  const shelterOptions = shelters.map((shelter) => ({
+    id: shelter.id,
+    name: shelter.name,
+    location: shelter.location,
+    needs: shelter.needs,
+  }));
   const inventoryOptions = inventory.map((item) => ({
     id: item.id,
     item: item.item,
@@ -194,7 +286,7 @@ export default async function LogisticsPage() {
             <CardDescription>Stok Siap Alokasi</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-1">
-            <div className="font-medium text-3xl tabular-nums leading-none tracking-tight">
+            <div className="font-kpi font-medium text-3xl tabular-nums leading-none tracking-tight">
               {availableItemTypes} / {inventory.length}
             </div>
             <p className="text-muted-foreground text-sm">Item dengan saldo cadangan aman</p>
@@ -212,7 +304,7 @@ export default async function LogisticsPage() {
           </CardHeader>
           <CardContent className="flex flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="font-medium text-3xl tabular-nums leading-none tracking-tight">
+              <div className="font-kpi font-medium text-3xl tabular-nums leading-none tracking-tight">
                 {activeDistributions} Rute
               </div>
               <Badge variant="outline" className="text-amber-600 border-amber-300 dark:border-amber-700">
@@ -233,7 +325,7 @@ export default async function LogisticsPage() {
             <CardDescription>Bantuan Diterima Gudang</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-1">
-            <div className="font-medium text-3xl tabular-nums leading-none tracking-tight">
+            <div className="font-kpi font-medium text-3xl tabular-nums leading-none tracking-tight">
               {receivedAids} Paket
             </div>
             <p className="text-muted-foreground text-sm">Tervalidasi di gudang kabupaten/provinsi</p>
@@ -251,7 +343,7 @@ export default async function LogisticsPage() {
           </CardHeader>
           <CardContent className="flex flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="font-medium text-3xl tabular-nums leading-none tracking-tight">
+              <div className="font-kpi font-medium text-3xl tabular-nums leading-none tracking-tight">
                 {pendingAids} Bantuan
               </div>
               {pendingAids > 0 ? (
@@ -304,32 +396,81 @@ export default async function LogisticsPage() {
             <Card key={distribution.id} className="flex flex-col justify-between shadow-xs">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between gap-2">
-                  <Badge variant="outline" className="font-mono text-xs">
-                    {distribution.id}
-                  </Badge>
-                  <Badge
-                    variant={distribution.status === "diterima" ? "secondary" : "outline"}
-                    className={
-                      distribution.status === "dalam-perjalanan"
-                        ? "border-amber-300 text-amber-700 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-300"
-                        : ""
-                    }
-                  >
-                    {statusLabels[distribution.status]}
-                  </Badge>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Badge variant="outline" className="font-mono text-xs shrink-0">
+                      {distribution.vehicleCode || distribution.id}
+                    </Badge>
+                    <span className="text-[11px] font-medium text-muted-foreground truncate">
+                      {distribution.id}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {distribution.isStale && (
+                      <Badge variant="outline" className="border-amber-400 bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 text-[10px] px-1.5 py-0">
+                        Update Usang
+                      </Badge>
+                    )}
+                    <Badge
+                      variant={distribution.status === "diterima" ? "secondary" : "outline"}
+                      className={
+                        distribution.status === "dalam-perjalanan"
+                          ? "border-sky-300 text-sky-700 bg-sky-50 dark:bg-sky-950/40 dark:text-sky-300"
+                          : ""
+                      }
+                    >
+                      {statusLabels[distribution.status]}
+                    </Badge>
+                  </div>
                 </div>
                 <CardTitle className="text-base font-semibold mt-2 truncate">
                   {distribution.destination}
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  {distribution.origin} · {distribution.institution}
+                  {distribution.vehicleName || "Truk Bantuan"} · {distribution.origin}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3.5">
                 <div className="rounded-lg bg-muted/60 p-3 text-xs leading-relaxed border">
                   <span className="font-medium text-foreground">Muatan: </span>
                   {distribution.cargo}
                 </div>
+
+                {/* Last Known Checkpoint Card (Manual update checkpoint model) */}
+                <div className="rounded-lg border p-2.5 bg-muted/30 text-xs space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                      <MapPin className="size-3 text-sky-600" />
+                      Lokasi Terakhir Diperbarui
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {distribution.lastUpdatedAt}
+                    </span>
+                  </div>
+                  <div className="font-medium text-foreground text-[12px]">
+                    {distribution.lastLocationName || "Gudang Logistik"}
+                  </div>
+                  {distribution.lastCoordinates && (
+                    <div className="text-[10px] font-mono text-muted-foreground">
+                      Koordinat: {distribution.lastCoordinates.latitude.toFixed(4)}, {distribution.lastCoordinates.longitude.toFixed(4)}
+                    </div>
+                  )}
+                  {distribution.driverNote && (
+                    <p className="text-[11px] italic text-muted-foreground border-l-2 border-sky-400 pl-2 mt-1">
+                      &ldquo;{distribution.driverNote}&rdquo;
+                    </p>
+                  )}
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t border-border/60">
+                    <span>
+                      Sumber: <strong className="text-foreground">{distribution.lastUpdatedByRole === "driver" ? "Supir Armada" : distribution.lastUpdatedByRole === "shelter" ? "Petugas Posko" : "Pembaruan Manual Petugas"}</strong>
+                    </span>
+                    {distribution.vehiclePlateNumber && (
+                      <span className="font-mono text-[9.5px] bg-muted px-1.5 py-0.5 rounded border">
+                        {distribution.vehiclePlateNumber}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
                 <div className="space-y-1.5">
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>ETA: {distribution.eta}</span>
@@ -337,28 +478,55 @@ export default async function LogisticsPage() {
                   </div>
                   <Progress value={distribution.progress} className="h-1.5" />
                 </div>
+
+                {/* Checkpoint History Accordion */}
+                {distribution.checkpointHistory && distribution.checkpointHistory.length > 0 && (
+                  <details className="text-xs group border rounded-md p-2 bg-card">
+                    <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-medium list-none flex items-center justify-between">
+                      <span>Riwayat Checkpoint ({distribution.checkpointHistory.length})</span>
+                      <span className="text-[10px] group-open:rotate-180 transition-transform">▼</span>
+                    </summary>
+                    <div className="space-y-1.5 pt-2 pl-2 border-l-2 border-sky-300 ml-1 mt-1.5 text-[11px]">
+                      {distribution.checkpointHistory.map((h, i) => (
+                        <div key={i} className="space-y-0.5">
+                          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                            <span className="font-semibold uppercase text-sky-700 dark:text-sky-300">{h.status}</span>
+                            <span>{new Date(h.createdAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} WIB</span>
+                          </div>
+                          <div className="font-medium text-foreground">{h.location}</div>
+                          {h.note && <div className="text-muted-foreground text-[10.5px] italic">&ldquo;{h.note}&rdquo;</div>}
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+
+                {/* Dokumen Tanda Terima (Proof of Delivery) */}
+                {distribution.proofOfDelivery?.attachment && (
+                  <div className="flex items-center justify-between text-[11px] p-2 rounded-md bg-muted/30 border border-border/70">
+                    <div className="flex items-center gap-1.5 truncate pr-2">
+                      <FileCheck className="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <span className="truncate font-medium text-foreground">
+                        {distribution.proofOfDelivery.attachment.originalFileName || "Bukti POD"}
+                      </span>
+                      <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 uppercase font-mono">
+                        {distribution.proofOfDelivery.attachment.visibility}
+                      </Badge>
+                    </div>
+                    <span className="text-[10.5px] text-muted-foreground shrink-0">
+                      Penerima: {distribution.proofOfDelivery.receivedBy}
+                    </span>
+                  </div>
+                )}
+
                 {capabilities.canManageDistribution && (
-                  <div className="flex flex-wrap gap-2 pt-2 border-t">
-                    <MutationAction
-                      action={updateDistributionStatusAction}
-                      label={distribution.status === "diterima" ? "Konfirmasi Selesai" : "Update Posisi"}
-                      fields={{
-                        code: distribution.id,
-                        status:
-                          distribution.status === "diterima"
-                            ? "diterima"
-                            : "dalam-perjalanan",
-                        progress:
-                          distribution.status === "diterima"
-                            ? 100
-                            : Math.min(100, distribution.progress + 20),
-                      }}
-                      variant="outline"
-                      className="text-xs h-8"
-                    />
+                  <div className="flex flex-wrap items-center gap-2 pt-2 border-t">
+                    <FleetCheckpointDialog distribution={distribution} />
                     <ConfirmMutationAction
                       action={confirmDistributionReceived}
                       label="Terima Bantuan"
+                      size="sm"
+                      triggerClassName="text-xs h-8"
                       title={`Konfirmasi ${distribution.id} diterima?`}
                       description={`Pastikan bantuan sudah sampai di ${distribution.destination}.`}
                       consequence="Status distribusi berubah jadi Diterima dan kuota posko otomatis tercatat."

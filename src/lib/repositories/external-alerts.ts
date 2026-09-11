@@ -1,6 +1,7 @@
 import type { CrisisStatus } from "@/lib/types";
 import type { MapPoint, VolcanoEruptionReport, VolcanoCctv, VolcanoObservationReport } from "@/components/crisis-map";
 import { INDONESIAN_ACTIVE_VOLCANOES, type IndonesianVolcano } from "@/data/volcanoes";
+import { parseTimeWithTimezone } from "@/lib/utils";
 
 export interface LiveDisasterAlert {
   id: string;
@@ -64,7 +65,14 @@ type BmkgApiResponse = {
 function parseBmkgCoordinate(value: string | undefined) {
   if (!value) return null;
   const [latPart, lonPart] = value.split(",").map((part) => Number(part.trim()));
-  if (!Number.isFinite(latPart) || !Number.isFinite(lonPart)) return null;
+  if (
+    !Number.isFinite(latPart) ||
+    !Number.isFinite(lonPart) ||
+    latPart < -12 ||
+    latPart > 7 ||
+    lonPart < 94 ||
+    lonPart > 142
+  ) return null;
   return { latitude: latPart, longitude: lonPart };
 }
 
@@ -239,17 +247,6 @@ async function fetchUsgsFallback(): Promise<LiveDisasterAlert[]> {
   }
 }
 
-function getVolcanoObservationShift(): string {
-  const now = new Date();
-  const utcHours = now.getUTCHours();
-  const wibHours = (utcHours + 7) % 24;
-  const dateText = formatIndonesianDate(now);
-
-  if (wibHours >= 18) return `Pengamatan 12:00 - 18:00 WIB, ${dateText}`;
-  if (wibHours >= 12) return `Pengamatan 06:00 - 12:00 WIB, ${dateText}`;
-  if (wibHours >= 6) return `Pengamatan 00:00 - 06:00 WIB, ${dateText}`;
-  return `Pengamatan 18:00 - 24:00 WIB, ${dateText}`;
-}
 
 interface RawMagmaVolcano {
   ga_code?: string;
@@ -324,7 +321,6 @@ const MAGMA_CACHE_TTL_MS = 60 * 1000; // 60 seconds TTL
  * Normalizes Indonesian Volcanoes from static catalog into LiveDisasterAlert (Fallback)
  */
 export function getVolcanoAlerts(): LiveDisasterAlert[] {
-  const shiftText = getVolcanoObservationShift();
   return INDONESIAN_ACTIVE_VOLCANOES.map((v) => ({
     id: `volcano-${v.id}`,
     source: "PVMBG" as const,
@@ -337,7 +333,7 @@ export function getVolcanoAlerts(): LiveDisasterAlert[] {
     kind: "Gunung Api" as const,
     isErupting: v.isErupting ?? false,
     detail: `${v.statusLevel} (Elevasi ${v.elevationMeters} mdpl). ${v.summary} Rekomendasi: ${v.recommendation}`,
-    updatedAt: shiftText,
+    updatedAt: "Katalog PVMBG",
     timestampMs: Date.now(),
     meta: {
       volcanoLevel: v.statusLevel,
@@ -577,8 +573,18 @@ export async function fetchLiveMagmaVolcanoes(): Promise<LiveDisasterAlert[]> {
       }
     }
 
-    const shiftText = getVolcanoObservationShift();
-    const liveAlerts: LiveDisasterAlert[] = rawArray.map((v) => {
+    const liveAlerts: LiveDisasterAlert[] = rawArray.flatMap((v) => {
+      const latitude = Number(v.ga_lat_gapi);
+      const longitude = Number(v.ga_lon_gapi);
+      if (
+        !Number.isFinite(latitude) ||
+        !Number.isFinite(longitude) ||
+        latitude < -12 ||
+        latitude > 7 ||
+        longitude < 94 ||
+        longitude > 142
+      ) return [];
+
       const statusCfg = getMagmaStatusConfig(v.ga_status);
       const isErupting = Boolean(v.erupt_icon);
       const latestVona = Array.isArray(v.vona) && v.vona.length > 0 ? v.vona[0] : null;
@@ -613,23 +619,38 @@ export async function fetchLiveMagmaVolcanoes(): Promise<LiveDisasterAlert[]> {
 
       const timeIso = latestVona?.issued_time ? new Date(latestVona.issued_time).toISOString() : new Date().toISOString();
       const updatedAtText = eruptionReport?.time
-        ? `${eruptionReport.time} (${shiftText})`
+        ? eruptionReport.time
         : observationReport?.period
-          ? `${observationReport.period} (${shiftText})`
+          ? observationReport.period
           : latestVona?.issued_time
-            ? `${formatRelativeTime(timeIso)} (${shiftText})`
-            : shiftText;
+            ? formatRelativeTime(timeIso)
+            : "";
 
       const primaryImageUrl = eruptionReport?.imageUrl;
+      const eruptionTimeMs = eruptionReport?.description
+        ? parseTimeWithTimezone(eruptionReport.description, new Date(now))
+        : eruptionReport?.time
+          ? parseTimeWithTimezone(eruptionReport.time, new Date(now))
+          : undefined;
 
-      return {
+      const observationTimeMs = observationReport?.period
+        ? parseTimeWithTimezone(observationReport.period, new Date(now))
+        : undefined;
+
+      const vonaTimeMs = latestVona?.issued_time ? new Date(latestVona.issued_time).getTime() : undefined;
+
+      // Real volcano activity timestamp: eruption, VONA, or observation report.
+      // Quiet volcanoes with no recent activity have 0.
+      const volcanoTimestampMs = eruptionTimeMs ?? vonaTimeMs ?? observationTimeMs ?? 0;
+
+      return [{
         id,
         source: "PVMBG" as const,
         sourceUrl: eruptionReport?.detailUrl || observationReport?.detailUrl || "https://magma.esdm.go.id/v1",
         name,
         location,
-        latitude: Number(v.ga_lat_gapi) || 0,
-        longitude: Number(v.ga_lon_gapi) || 0,
+        latitude,
+        longitude,
         status: statusCfg.crisisStatus,
         kind: "Gunung Api" as const,
         isErupting,
@@ -639,7 +660,7 @@ export async function fetchLiveMagmaVolcanoes(): Promise<LiveDisasterAlert[]> {
         cctvCount,
         detail,
         updatedAt: updatedAtText,
-        timestampMs: latestVona?.issued_time ? new Date(latestVona.issued_time).getTime() : now,
+        timestampMs: volcanoTimestampMs,
         meta: {
           volcanoLevel: statusCfg.levelFull,
           dangerRadiusKm: statusCfg.defaultRadiusKm,
@@ -651,13 +672,15 @@ export async function fetchLiveMagmaVolcanoes(): Promise<LiveDisasterAlert[]> {
           cctvCount,
           imageUrl: primaryImageUrl,
         },
-      };
+      }];
     });
 
-    // Urutan prioritas:
-    // 1. Sedang erupsi (erupt_icon = true)
-    // 2. Status level tertinggi (critical -> major -> warning -> safe)
-    // 3. Nama alfabetis
+    // Urutan prioritas Gunung Api:
+    // 1. Ada laporan letusan/aktivitas terkini (eruptionReport) diurutkan dari waktu paling baru
+    // 2. Waktu aktivitas / timestamp terbaru
+    // 3. Sedang erupsi aktif (isErupting = true)
+    // 4. Status level tertinggi (critical -> major -> warning -> safe)
+    // 5. Nama alfabetis
     const statusWeight: Record<CrisisStatus, number> = {
       critical: 4,
       major: 3,
@@ -666,11 +689,31 @@ export async function fetchLiveMagmaVolcanoes(): Promise<LiveDisasterAlert[]> {
     };
 
     liveAlerts.sort((a, b) => {
+      // 1. Aktivitas letusan terkini (erupsi) dibanding berdasarkan waktu letusan terbaru
+      const hasEruptA = Boolean(a.eruptionReport?.time || a.eruptionReport?.description);
+      const hasEruptB = Boolean(b.eruptionReport?.time || b.eruptionReport?.description);
+      if (hasEruptA && hasEruptB) {
+        const timeA = a.timestampMs || 0;
+        const timeB = b.timestampMs || 0;
+        if (timeA !== timeB) return timeB - timeA;
+      } else if (hasEruptA !== hasEruptB) {
+        return hasEruptB ? 1 : -1;
+      }
+
+      // 2. Waktu aktivitas vulkanik terbaru (timestampMs)
+      const timeA = a.timestampMs || 0;
+      const timeB = b.timestampMs || 0;
+      if (timeA !== timeB) {
+        return timeB - timeA;
+      }
+
       if (a.isErupting !== b.isErupting) {
         return (b.isErupting ? 1 : 0) - (a.isErupting ? 1 : 0);
       }
+
       const weightDiff = (statusWeight[b.status] || 0) - (statusWeight[a.status] || 0);
       if (weightDiff !== 0) return weightDiff;
+
       return a.name.localeCompare(b.name);
     });
 

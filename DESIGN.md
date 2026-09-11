@@ -260,7 +260,8 @@ Gunakan arah rasa:
 
 ### 9.2 Typography tokens
 
-- `--font-sans: "Plus Jakarta Sans", "Inter", "Segoe UI", sans-serif`
+- `--font-display: "Plus Jakarta Sans", sans-serif`
+- `--font-body: "Inter", sans-serif`
 - `--font-mono: "JetBrains Mono", "Consolas", monospace`
 
 - `--text-display: 40px`
@@ -312,7 +313,9 @@ Gunakan arah rasa:
 ## 10. Typography Rules
 
 - Gunakan sans-serif modern yang mudah dibaca.
-- Prioritaskan **Plus Jakarta Sans** sebagai font utama seluruh UI.
+- Gunakan **Plus Jakarta Sans** hanya untuk `h1`, `h2`, judul display utama, dan angka KPI.
+- Gunakan **Inter** untuk `h3`-`h6`, subjudul, judul kartu/dialog, body, label, tombol, tabel, dan teks kecil.
+- Font monospace hanya menjadi pengecualian fungsional untuk ID, kode, shortcut, dan input SMS; jangan gunakan sebagai gaya dekoratif.
 - Judul dashboard harus tegas dan jelas, bukan dekoratif.
 - KPI angka harus dominan, bersih, dan sangat mudah dipindai.
 - Teks tabel dan label status harus mengutamakan keterbacaan.

@@ -18,10 +18,13 @@ function mapFieldReportToRow(report: FieldReport): RecentReportRow {
     safe: "Terkendali",
   };
   const statusMap: Record<ReportStatus, RecentReportRow["status"]> = {
-    baru: "Belum Diverifikasi",
+    baru: "Baru",
+    perlu_verifikasi: "Perlu Verifikasi",
     diverifikasi: "Diverifikasi",
-    ditindaklanjuti: "Ditangani",
-    ditolak: "Selesai",
+    ditindaklanjuti: "Ditindaklanjuti",
+    dibuka_jadi_kejadian: "Dibuka Jadi Kejadian",
+    duplikat: "Duplikat",
+    ditolak: "Ditolak",
   };
   const channelMap: Record<FieldReport["channel"], RecentReportRow["channel"]> = {
     Web: "Web App",
@@ -29,11 +32,41 @@ function mapFieldReportToRow(report: FieldReport): RecentReportRow {
     Petugas: "Radio Lapangan",
   };
 
+  const rawSummary = report.summary || "Laporan Lapangan";
+  const rawLocation = report.location || "Wilayah Lapangan";
+
+  // Extract phone contact: [KONTAK: 089621500376]
+  const phoneMatch = rawSummary.match(/\[KONTAK:\s*([^\]]+)\]/i);
+  const phone = phoneMatch ? phoneMatch[1].trim() : undefined;
+
+  // Extract GPS: [GPS: -0.92832, 100.42864] or (-0.92832, 100.42864) in summary or location
+  const gpsMatch =
+    rawSummary.match(/\[GPS:\s*([^\]]+)\]/i) ||
+    rawLocation.match(/\(([-+]?\d+(?:\.\d+)?,\s*[-+]?\d+(?:\.\d+)?)\)/);
+  const coordinates = gpsMatch ? gpsMatch[1].trim() : undefined;
+
+  // Clean human-readable summary
+  const cleanSummary = rawSummary
+    .replace(/\[GPS:[^\]]*\]/gi, "")
+    .replace(/\[KONTAK:[^\]]*\]/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  // Clean human-readable location (strip coordinates and brackets if present)
+  const cleanLocation = rawLocation
+    .replace(/\s*\([-+]?\d+(\.\d+)?,\s*[-+]?\d+(\.\d+)?\)/g, "")
+    .replace(/\[GPS:[^\]]*\]/gi, "")
+    .replace(/\[KONTAK:[^\]]*\]/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
   return {
     id: report.id,
     reporterName: report.reporter || "Warga",
-    location: report.location || "Wilayah Lapangan",
-    disasterType: report.summary || "Laporan Lapangan",
+    location: cleanLocation || "Wilayah Lapangan",
+    disasterType: cleanSummary || "Laporan Lapangan",
+    coordinates,
+    phone,
     urgency: urgencyMap[report.severity] ?? "Waspada",
     status: statusMap[report.status] ?? "Belum Diverifikasi",
     channel: channelMap[report.channel] ?? "Web App",
@@ -50,7 +83,9 @@ export default async function DashboardPage() {
   const warningEvents = disasterEvents.filter((e) => e.status === "warning" || e.status === "major").length;
   const totalRefugees = shelters.reduce((acc, s) => acc + (s.population?.total || 0), 0);
   const criticalItems = inventory.filter((item) => item.status === "critical");
-  const unverifiedReports = fieldReports.filter((r) => r.status === "baru").length;
+  const unverifiedReports = fieldReports.filter(
+    (r) => r.status === "baru" || r.status === "perlu_verifikasi",
+  ).length;
 
   const eventsDetail =
     disasterEvents.length === 0
@@ -62,8 +97,10 @@ export default async function DashboardPage() {
       ? "Stok kebutuhan terpenuhi"
       : criticalItems.slice(0, 3).map((i) => i.item).join(", ");
 
-  // Saring laporan ditolak / duplikat dan cegah tampilan ganda
-  const activeReports = fieldReports.filter((r) => r.status !== "ditolak");
+  // Saring laporan ditolak & duplikat dan cegah tampilan ganda
+  const activeReports = fieldReports.filter(
+    (r) => r.status !== "ditolak" && r.status !== "duplikat",
+  );
   const seenKeys = new Set<string>();
   const uniqueReports: typeof fieldReports = [];
   for (const rep of activeReports) {

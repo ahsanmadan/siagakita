@@ -3,7 +3,7 @@ import { PublicMapShell } from "@/components/public-map-shell";
 import { getCurrentProfile } from "@/lib/auth";
 import { getPublicMapData } from "@/lib/repositories/operations";
 import { getAggregatedExternalAlerts } from "@/lib/repositories/external-alerts";
-import type { DisasterEvent, Shelter } from "@/lib/types";
+import type { DisasterEvent, Distribution, Shelter } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +29,7 @@ export default async function PublicMapPage({
     })),
   ]);
 
-  const { disasterEvents, shelters } = mapData;
+  const { disasterEvents, shelters, distributions = [], sourceState, sourceTimestamp } = mapData;
 
   const points: MapPoint[] = [
     ...disasterEvents.map((event: DisasterEvent) => ({
@@ -42,7 +42,7 @@ export default async function PublicMapPage({
       kind: "Kejadian" as const,
       detail: event.summary,
       updatedAt: event.updatedAt,
-      timestampMs: new Date(event.updatedAt).getTime() || Date.now(),
+      timestampMs: new Date(event.updatedAt).getTime() || 0,
     })),
     ...shelters.map((shelter: Shelter) => ({
       id: shelter.id,
@@ -54,8 +54,34 @@ export default async function PublicMapPage({
       kind: "Posko" as const,
       detail: "Informasi posko publik tersedia tanpa data pribadi.",
       updatedAt: shelter.lastUpdate,
-      timestampMs: new Date(shelter.lastUpdate).getTime() || Date.now(),
+      timestampMs: new Date(shelter.lastUpdate).getTime() || 0,
     })),
+    ...distributions
+      .filter((dist: Distribution) => dist.lastCoordinates)
+      .map((dist: Distribution) => ({
+        id: dist.id,
+        name: `${dist.vehicleCode || dist.id} (${dist.vehicleName || "Mobil Logistik"})`,
+        location: dist.lastLocationName || `Menuju ${dist.destination}`,
+        latitude: dist.lastCoordinates!.latitude,
+        longitude: dist.lastCoordinates!.longitude,
+        status: dist.status === "dalam-perjalanan" ? ("major" as const) : ("warning" as const),
+        kind: "Distribution" as const,
+        detail: `Muatan: ${dist.cargo}. Menuju ${dist.destination}. ${dist.isStale ? "Menunggu pembaruan lokasi dari supir armada." : ""}`,
+        updatedAt: dist.lastUpdatedAt || "Berkala",
+        timestampMs: dist.lastUpdatedAtIso ? new Date(dist.lastUpdatedAtIso).getTime() : Date.now(),
+        source: dist.lastUpdatedByRole === "driver" ? "Pembaruan Supir Armada" : "Posko Bantuan",
+        isStale: dist.isStale,
+        vehicleCode: dist.vehicleCode,
+        vehicleName: dist.vehicleName,
+        destinationShelter: dist.destination,
+        cargoSummary: dist.cargo,
+        progressPercent: dist.progress,
+        etaText: dist.eta,
+        distributionStatus: dist.status,
+        lastLocationName: dist.lastLocationName,
+        driverNote: dist.driverNote,
+        checkpointHistory: dist.checkpointHistory,
+      })),
     ...externalAlertsData.mapPoints,
   ];
 
@@ -68,6 +94,8 @@ export default async function PublicMapPage({
       initialTickerSummaries={externalAlertsData.tickerSummaries}
       initialPointId={initialPointId}
       currentUser={currentUser}
+      initialDataState={sourceState}
+      initialDataTimestamp={sourceTimestamp}
     />
   );
 }

@@ -22,10 +22,12 @@ export function SitrepExportActions({
   data,
   mapPoints,
   publicPath,
+  secondary = false,
 }: {
   data: SitrepData;
   mapPoints: SitrepMapPoint[];
   publicPath: string;
+  secondary?: boolean;
 }) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [copyState, setCopyState] = useState<CopyState>("idle");
@@ -91,6 +93,7 @@ export function SitrepExportActions({
         <TooltipTrigger asChild>
           <Button
             type="button"
+            variant={secondary ? "outline" : "default"}
             className="sitrep-action min-h-11 whitespace-nowrap"
             onClick={() => setPreviewOpen(true)}
           >

@@ -195,8 +195,13 @@ export const SignInPage: React.FC<SignInPageProps> = ({
               </button>
             </form>
 
-            <div className="animate-element animate-delay-800 space-y-1 pt-1 text-center">
-              <p className="text-balance text-xs leading-relaxed text-muted-foreground sm:text-[13px]">Belum punya akses? Hubungi admin BPBD wilayah Anda.</p>
+            <div className="animate-element animate-delay-800 space-y-1.5 pt-1 text-center">
+              <p className="text-balance text-xs leading-relaxed text-muted-foreground sm:text-[13px]">
+                Personel atau relawan baru?{" "}
+                <Link href="/daftar" className="font-semibold text-primary hover:underline">
+                  Daftar akun di sini
+                </Link>
+              </p>
               <p className="text-[11px] text-muted-foreground/80">© 2026 SiagaKita</p>
             </div>
           </div>

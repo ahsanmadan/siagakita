@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronLeftIcon, ChevronRightIcon } from "@radix-ui/react-icons";
 import { CrisisMap, getVolcanoLevel, type MapPoint } from "@/components/crisis-map";
@@ -14,8 +14,7 @@ import {
 } from "@/components/disaster-sidebar";
 import { MapLayerControl, DEFAULT_MAP_LAYERS, type MapLayerState } from "@/components/map-layer-control";
 import { Button } from "@/components/ui/button";
-import { Marquee } from "@/components/ui/marquee";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,13 +23,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LayoutDashboard, LogOut, Pause, Play, RefreshCw } from "lucide-react";
+import { LayoutDashboard, LogOut } from "lucide-react";
 import { signOutAction } from "@/lib/actions/auth";
 import { type CurrentProfile, roleLabel } from "@/lib/auth-types";
 import { cn, getInitials, getPointTimestamp } from "@/lib/utils";
 import type { DisasterEvent, Shelter } from "@/lib/types";
 import { CitizenReportDialog } from "@/components/citizen-report-dialog";
+import { PublicMapStatus } from "@/components/public-map-status";
 import { useLiveAlerts } from "@/hooks/use-live-alerts";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 
 type PublicMapShellProps = {
   disasterEvents: DisasterEvent[];
@@ -40,6 +42,8 @@ type PublicMapShellProps = {
   initialPointId?: string;
   currentUser?: CurrentProfile | null;
   initialTickerSummaries?: string[];
+  initialDataState?: "live" | "cache" | "unavailable";
+  initialDataTimestamp?: number | null;
 };
 
 export type MobileSnap = "peek" | "compact" | "expanded";
@@ -67,12 +71,6 @@ function publicSummaryForPoint(point: MapPoint, summary?: string) {
   return summary ?? point.detail ?? "Informasi situasi darurat sedang diperbarui petugas.";
 }
 
-function publicImageForEvent(event?: DisasterEvent | null): PublicPointMeta["image"] {
-  return {
-    alt: `Foto kejadian ${event?.name ?? "bencana"} belum tersedia`,
-  };
-}
-
 function pointMatchesQuery(point: MapPoint, query: string) {
   const keyword = normalize(query);
   if (!keyword) return true;
@@ -89,6 +87,9 @@ function pointMatchesFilter(point: MapPoint, filter: PublicFilter) {
 }
 
 function pointMatchesLayers(point: MapPoint, layers: MapLayerState) {
+  if (point.kind === "Distribution") {
+    return layers.logisticsFleet;
+  }
   if (point.kind === "Gempa") {
     return layers.earthquake;
   }
@@ -110,6 +111,8 @@ export function PublicMapShell({
   initialPointId,
   currentUser,
   initialTickerSummaries = [],
+  initialDataState = "live",
+  initialDataTimestamp,
 }: PublicMapShellProps) {
   // Live alerts hook for zero-reload client synchronization of BMKG and PVMBG data
   const initialExternalPoints = useMemo(
@@ -120,8 +123,14 @@ export function PublicMapShell({
 
   const {
     externalPoints: liveExternalPoints,
-    tickerSummaries: liveTickerSummaries,
     isLiveSyncing,
+    lastSyncTime,
+    syncError,
+    networkStatus,
+    dataAge,
+    hasCachedData,
+    isUsingCachedData,
+    useLastSnapshot,
     refreshNow,
   } = useLiveAlerts({
     initialPoints: initialExternalPoints,
@@ -145,6 +154,7 @@ export function PublicMapShell({
   const [detailHistory, setDetailHistory] = useState<string[]>([]);
   const [layers, setLayers] = useState<MapLayerState>(DEFAULT_MAP_LAYERS);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   const toggleLayer = useCallback((key: keyof MapLayerState) => {
     setLayers((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -153,7 +163,34 @@ export function PublicMapShell({
   const [mobileView, setMobileView] = useState<"list" | "detail">(hasInitialPoint ? "detail" : "list");
   const [isDragging, setIsDragging] = useState(false);
   const [dragCurrentDelta, setDragCurrentDelta] = useState(0);
-  const [isTickerPaused, setIsTickerPaused] = useState(false);
+
+  const recoverMissingPoint = useCallback(() => {
+    setQuery("");
+    setFilter("all");
+    setSelectedPointId(undefined);
+    setDetailHistory([]);
+    setMobileView("list");
+    setMobileSnap("peek");
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    const supabase = createSupabaseBrowserClient();
+    let active = true;
+
+    void (async () => {
+      const result = await supabase.auth.getSession();
+      if (active && !result.data.session) setSessionExpired(true);
+    })();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
+      if (active) setSessionExpired(!session);
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, [currentUser]);
 
   const dragStartY = useRef<number | null>(null);
   const dragLastY = useRef<number | null>(null);
@@ -251,6 +288,101 @@ export function PublicMapShell({
       : undefined,
     [filteredPoints, allPoints, selectedPointId],
   );
+  const selectedPointUnavailable = Boolean(selectedPointId && !selectedPoint);
+
+  const syncStatus = useMemo(() => {
+    const syncedAt = lastSyncTime?.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+
+    if (networkStatus === "offline") {
+      return (
+        <PublicMapStatus
+          compact
+          tone="warning"
+          title="Koneksi terputus"
+          description="Peta menampilkan data yang sudah tersedia. Sambungkan internet untuk menerima pembaruan."
+          actionLabel="Coba lagi"
+          onAction={refreshNow}
+          secondaryActionLabel={hasCachedData ? "Gunakan data terakhir" : undefined}
+          onSecondaryAction={hasCachedData ? useLastSnapshot : undefined}
+        />
+      );
+    }
+    if (syncError) {
+      return (
+        <PublicMapStatus
+          compact
+          tone={liveExternalPoints.length ? "warning" : "critical"}
+          title="Pembaruan data gagal"
+          description={liveExternalPoints.length
+            ? "Data di peta tetap dapat dibaca, tetapi informasi BMKG dan PVMBG mungkin belum terbaru."
+            : "Server pemantauan belum dapat dihubungi. Data bencana eksternal belum tersedia."}
+          actionLabel="Coba lagi"
+          onAction={refreshNow}
+          secondaryActionLabel={hasCachedData ? "Gunakan data terakhir" : undefined}
+          onSecondaryAction={hasCachedData ? useLastSnapshot : undefined}
+        />
+      );
+    }
+    if (isLiveSyncing) {
+      return <PublicMapStatus compact tone="info" title="Memperbarui data" description="Mengambil informasi terbaru dari BMKG dan PVMBG." loading />;
+    }
+    if (isUsingCachedData) {
+      return (
+        <PublicMapStatus
+          compact
+          tone={dataAge === "expired" ? "critical" : "warning"}
+          title={dataAge === "expired" ? "Data terakhir sudah kedaluwarsa" : "Menggunakan data terakhir"}
+          description={`Snapshot browser dari ${syncedAt ?? "sinkronisasi sebelumnya"} sedang ditampilkan. Verifikasi arahan resmi sebelum bertindak.`}
+          actionLabel="Perbarui sekarang"
+          onAction={refreshNow}
+        />
+      );
+    }
+    if (lastSyncTime && dataAge !== "fresh") {
+      return (
+        <PublicMapStatus
+          compact
+          tone={dataAge === "expired" ? "critical" : "warning"}
+          title={dataAge === "expired" ? "Data belum diperbarui lebih dari 30 menit" : "Data mulai lama"}
+          description={`Sinkronisasi terakhir pukul ${syncedAt}. Informasi terbaru mungkin belum masuk.`}
+          actionLabel="Perbarui sekarang"
+          onAction={refreshNow}
+        />
+      );
+    }
+    if (networkStatus === "slow") {
+      return <PublicMapStatus compact tone="warning" title="Koneksi lambat" description="Pembaruan dapat memerlukan waktu lebih lama. Data yang sudah tampil tetap dapat digunakan." />;
+    }
+    return null;
+  }, [dataAge, hasCachedData, isLiveSyncing, isUsingCachedData, lastSyncTime, liveExternalPoints.length, networkStatus, refreshNow, syncError, useLastSnapshot]);
+
+  const serverStatus = initialDataState === "live" ? null : (
+    <PublicMapStatus
+      compact
+      tone={initialDataState === "unavailable" && allPoints.length === 0 ? "critical" : "warning"}
+      title={initialDataState === "cache" ? "Menggunakan data operasional terakhir" : "Data posko dan kejadian belum tersedia"}
+      description={initialDataState === "cache"
+        ? `Server database tidak dapat dijangkau. Data operasional dari ${initialDataTimestamp ? new Date(initialDataTimestamp).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "sinkronisasi sebelumnya"} tetap ditampilkan.`
+        : "Server database belum dapat dihubungi. Informasi BMKG dan PVMBG yang tersedia tetap ditampilkan."}
+      actionLabel="Muat ulang"
+      onAction={() => window.location.reload()}
+    />
+  );
+
+  const sidebarStatus = selectedPointUnavailable ? (
+    <>
+      {serverStatus}
+      {syncStatus}
+      <PublicMapStatus
+        compact
+        tone="warning"
+        title="Detail lokasi tidak tersedia"
+        description="Marker yang dipilih tidak ditemukan pada data terbaru. Kembali ke daftar untuk memilih lokasi lain."
+        actionLabel="Kembali ke daftar"
+        onAction={recoverMissingPoint}
+      />
+    </>
+  ) : serverStatus || syncStatus ? <>{serverStatus}{syncStatus}</> : null;
 
   const sidebarPoints = useMemo(() => {
     const kindPriority: Record<MapPoint["kind"], number> = {
@@ -262,7 +394,7 @@ export function PublicMapShell({
       Gempa: 6,
     };
 
-    return [...filteredPoints].sort((a, b) => {
+    return filteredPoints.filter((point) => point.kind !== "Posko").sort((a, b) => {
       const kindDiff = (kindPriority[a.kind] ?? 99) - (kindPriority[b.kind] ?? 99);
       if (kindDiff !== 0) return kindDiff;
 
@@ -395,40 +527,6 @@ export function PublicMapShell({
       }
     : undefined;
 
-  const tickerItems = useMemo(() => {
-    const items: string[] = [];
-
-    // 1. Live BMKG & PVMBG alerts from hook
-    if (liveTickerSummaries.length > 0) {
-      items.push(...liveTickerSummaries);
-    } else {
-      const gempa = allPoints.find((p) => p.kind === "Gempa");
-      if (gempa) {
-        items.push(`📡 BMKG: ${gempa.name} (${gempa.location}). ${gempa.detail || "Waspada potensi gempa susulan."}`);
-      }
-      const volcano = allPoints.find((p) => p.kind === "Gunung Api" && (p.status === "critical" || p.status === "major"));
-      if (volcano) {
-        items.push(`🌋 PVMBG: ${volcano.name} (${volcano.location}) - ${volcano.detail}`);
-      }
-    }
-
-    // 2. Incident events
-    disasterEvents.forEach((evt) => {
-      items.push(`🚨 ${evt.name} (${evt.location}): ${evt.summary}`);
-    });
-
-    // 3. Shelters
-    shelters.forEach((sh) => {
-      items.push(`⛺ Posko ${sh.name}: Melayani evakuasi dan koordinasi logistik di ${sh.location}.`);
-    });
-
-    if (items.length === 0) {
-      items.push("✅ Kondisi Nasional Terpantau Aman: Tidak ada peringatan kedaruratan aktif saat ini.");
-    }
-
-    return items;
-  }, [liveTickerSummaries, allPoints, disasterEvents, shelters]);
-
   return (
     <main
       className="public-map-shell relative min-h-svh overflow-hidden bg-background"
@@ -455,57 +553,6 @@ export function PublicMapShell({
 
       {/* Floating Bottom-Left Layer Selector Control (dynamically aligns with sidebar) */}
       <MapLayerControl layers={layers} onLayerToggle={toggleLayer} />
-
-      {/* Top Floating Emergency Marquee Ticker */}
-      <aside
-        aria-label="Peringatan Bencana Terkini"
-        className={cn(
-          "pointer-events-none absolute top-3 z-30 flex justify-center transition-[left,right] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
-          "left-3 right-3",
-          sidebarOpen
-            ? "lg:left-[450px] xl:left-[490px] lg:right-32"
-            : "lg:left-32 lg:right-32",
-        )}
-      >
-        <div className="pointer-events-auto flex items-center gap-1.5 max-w-xl w-full h-8.5 px-3 rounded-full bg-card/90 dark:bg-card/95 backdrop-blur-md border border-border shadow-xs text-[11.5px] overflow-hidden" aria-live="polite">
-          <div className="flex items-center shrink-0 pr-2 border-r border-border font-semibold text-red-600 dark:text-red-400 gap-1.5">
-            <span className="tracking-wide text-[10px] uppercase font-bold">Siaga Terkini</span>
-            <button
-              type="button"
-              onClick={() => setIsTickerPaused((prev) => !prev)}
-              className="p-0.5 text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded cursor-pointer transition-colors"
-              aria-label={isTickerPaused ? "Lanjutkan teks peringatan berjalan" : "Jeda teks peringatan berjalan"}
-              title={isTickerPaused ? "Lanjutkan teks peringatan" : "Jeda teks peringatan"}
-            >
-              {isTickerPaused ? <Play className="size-2.5" /> : <Pause className="size-2.5" />}
-            </button>
-            <button
-              type="button"
-              onClick={() => refreshNow()}
-              disabled={isLiveSyncing}
-              className="p-0.5 text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded cursor-pointer transition-colors disabled:opacity-50"
-              aria-label="Perbarui data telemetri bencana terkini"
-              title="Sinkronkan BMKG & PVMBG sekarang"
-            >
-              <RefreshCw className={cn("size-2.5", isLiveSyncing && "animate-spin")} />
-            </button>
-          </div>
-          <Marquee
-            speed={50}
-            className="py-0"
-            paused={isTickerPaused}
-          >
-            <span className="text-foreground/85 font-medium inline-flex items-center gap-3">
-              {tickerItems.map((item, index) => (
-                <span key={index} className="inline-flex items-center gap-3">
-                  <span>{item}</span>
-                  <span className="text-border">·</span>
-                </span>
-              ))}
-            </span>
-          </Marquee>
-        </div>
-      </aside>
 
       <div className="public-map-mobile-controls pointer-events-none lg:hidden">
         <div className="public-map-mobile-search pointer-events-auto">
@@ -573,7 +620,7 @@ export function PublicMapShell({
             <div className="mobile-sheet-detail-view" key={selectedPoint.id}>
               <DisasterDetailPanel
                 point={selectedPoint}
-                points={points}
+                points={allPoints}
                 meta={pointMeta.get(selectedPoint.id)}
                 onClose={closeDetail}
                 onSelectPoint={selectPoint}
@@ -589,7 +636,7 @@ export function PublicMapShell({
                 filter={filter}
                 externalSources={externalSources}
                 pointMeta={pointMeta}
-                currentUser={currentUser}
+                currentUser={sessionExpired ? null : currentUser}
                 onQueryChange={updateQuery}
                 onFilterChange={updateFilter}
                 onReset={resetMap}
@@ -609,7 +656,7 @@ export function PublicMapShell({
             filter={filter}
             externalSources={externalSources}
             pointMeta={pointMeta}
-            currentUser={currentUser}
+            currentUser={sessionExpired ? null : currentUser}
             onQueryChange={updateQuery}
             onFilterChange={updateFilter}
             onReset={resetMap}
@@ -627,7 +674,7 @@ export function PublicMapShell({
         >
           <DisasterDetailPanel
             point={selectedPoint}
-            points={points}
+            points={allPoints}
             meta={pointMeta.get(selectedPoint.id)}
             onClose={closeDetail}
             onSelectPoint={selectPoint}
@@ -636,6 +683,17 @@ export function PublicMapShell({
       ) : null}
 
       {/* Citizen Emergency Reporting Button & Staff Controls */}
+      {sessionExpired ? (
+        <PublicMapStatus
+          compact
+          className="public-map-session-status"
+          tone="critical"
+          title="Sesi petugas telah berakhir"
+          description="Masuk kembali untuk membuka Console Operasi. Peta publik tetap dapat digunakan."
+          actionLabel="Masuk kembali"
+          onAction={() => window.location.assign("/login?reason=session-expired")}
+        />
+      ) : null}
       <div
         className={cn(
           "public-map-staff-login-wrap pointer-events-none absolute right-3 top-3 z-50 flex items-center gap-2 sm:right-5",
@@ -648,24 +706,13 @@ export function PublicMapShell({
 
         {currentUser ? (
           <div className="pointer-events-auto flex items-center gap-2 max-lg:hidden">
-            <Button
-              asChild
-              variant="outline"
-              size="sm"
-              className="h-9 gap-1.5 rounded-full px-3 text-[12px] font-medium shadow-xs hover:bg-primary hover:text-primary-foreground transition-colors"
-            >
-              <Link href="/dashboard">
-                <LayoutDashboard className="size-3.5" />
-                <span>Console</span>
-              </Link>
-            </Button>
-
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
                   className="relative flex size-9 items-center justify-center rounded-full border border-border bg-card shadow-xs transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
                   aria-label="Menu profil petugas"
+                  title={`Akun: ${currentUser.fullName}`}
                 >
                   <Avatar className="size-8.5 rounded-full">
                     <AvatarFallback className="text-[11px] font-bold bg-primary/10 text-primary">
@@ -680,16 +727,18 @@ export function PublicMapShell({
                   <div className="flex flex-col space-y-1">
                     <p className="text-xs font-semibold leading-none text-foreground">{currentUser.fullName}</p>
                     <p className="text-[11px] leading-none text-muted-foreground">{currentUser.email}</p>
-                    <div className="pt-1.5">
-                      <span className="inline-block rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                        {roleLabel(currentUser.role)}
-                      </span>
-                    </div>
+                    {currentUser.fullName.trim().toLowerCase() !== roleLabel(currentUser.role).trim().toLowerCase() ? (
+                      <div className="pt-1.5">
+                        <span className="inline-block rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          {roleLabel(currentUser.role)}
+                        </span>
+                      </div>
+                    ) : null}
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link href="/dashboard" className="flex items-center gap-2 text-xs font-medium cursor-pointer">
+                   <Link href={sessionExpired ? "/login?reason=session-expired" : "/dashboard"} className="flex items-center gap-2 text-xs font-medium cursor-pointer">
                     <LayoutDashboard className="size-3.5 text-muted-foreground" />
                     <span>Dashboard Console</span>
                   </Link>

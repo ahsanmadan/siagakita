@@ -40,7 +40,7 @@ export function OperationalBrief({
     <Card className={cn("operational-surface py-0 shadow-none", className)}>
       <CardContent className="p-4">
         <div className="mb-3 flex items-center justify-between gap-3">
-          <p className="text-sm font-semibold">{title}</p>
+          <p className="font-display text-sm font-semibold">{title}</p>
           <p className="hidden text-xs text-muted-foreground sm:block">Berdasarkan data yang tersimpan</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

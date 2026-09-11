@@ -1,78 +1,20 @@
-import Link from "next/link";
 import {
-  Ban,
-  Check,
   CheckCircle2,
   Clock3,
   MessageSquareText,
-  PhoneCall,
   RadioTower,
   ShieldCheck,
-  X,
 } from "lucide-react";
-import { ConfirmMutationAction } from "@/components/confirm-mutation-action";
-import { MutationAction } from "@/components/mutation-action";
-import { StatusBadge } from "@/components/status-badge";
+import { CreateReportDialog } from "@/components/create-report-dialog";
 import { ZeroGridSimulator } from "@/components/zero-grid-simulator";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  createFieldReport,
-  openEventFromReport,
-  rejectFieldReport,
-  triageReportWithAIAction,
-  verifyFieldReport,
-} from "@/lib/actions/operations";
 import { requireRole } from "@/lib/auth";
+import { getEntitiesAttachments, getOperationsData, getSmsMessagesData } from "@/lib/repositories/operations";
 import { roleCapabilities } from "@/lib/role-ui";
-import { getOperationsData } from "@/lib/repositories/operations";
-import type { FieldReport, ReportStatus } from "@/lib/types";
-import { cn } from "@/lib/utils";
-
-const reportStatusLabel: Record<ReportStatus, string> = {
-  baru: "Perlu Verifikasi",
-  diverifikasi: "Diverifikasi",
-  ditindaklanjuti: "Ditindaklanjuti",
-  ditolak: "Ditolak / Duplikat",
-};
-
-const reportStatusStyle: Record<ReportStatus, string> = {
-  baru: "border-amber-300 bg-amber-100 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-200",
-  diverifikasi:
-    "border-blue-300 bg-blue-100 text-blue-900 dark:border-blue-500/40 dark:bg-blue-500/15 dark:text-blue-200",
-  ditindaklanjuti:
-    "border-emerald-300 bg-emerald-100 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-200",
-  ditolak:
-    "border-rose-300 bg-rose-100 text-rose-900 dark:border-rose-500/40 dark:bg-rose-500/15 dark:text-rose-200",
-};
+import { ReportQueueTable, type QueueFilter } from "./_components/report-queue-table";
 
 const queueFilters = ["semua", "perlu-verifikasi", "terverifikasi", "zero-grid"] as const;
-type QueueFilter = (typeof queueFilters)[number];
-
-const filterLabel: Record<QueueFilter, string> = {
-  semua: "Semua Laporan",
-  "perlu-verifikasi": "Perlu Verifikasi",
-  terverifikasi: "Terverifikasi",
-  "zero-grid": "SMS Zero-Grid",
-};
-
-function matchesFilter(report: FieldReport, filter: QueueFilter) {
-  if (filter === "perlu-verifikasi") return report.status === "baru";
-  if (filter === "terverifikasi") {
-    return report.status === "diverifikasi" || report.status === "ditindaklanjuti";
-  }
-  if (filter === "zero-grid") return report.channel === "SMS Zero-Grid";
-  return true;
-}
 
 function parseFilter(value: string | string[] | undefined): QueueFilter {
   const candidate = Array.isArray(value) ? value[0] : value;
@@ -84,38 +26,59 @@ export default async function ReportsPage({
 }: {
   searchParams: Promise<{ antrean?: string | string[] }>;
 }) {
-  const [profile, { fieldReports }, resolvedSearchParams] = await Promise.all([
+  const [profile, operationsData, smsMessages, resolvedSearchParams] = await Promise.all([
     requireRole(["admin", "bpbd_operator", "field_officer"], "/dashboard"),
     getOperationsData(),
+    getSmsMessagesData(),
     searchParams,
   ]);
   const capabilities = roleCapabilities(profile.role);
   const activeFilter = parseFilter(resolvedSearchParams.antrean);
-  const visibleReports = fieldReports.filter((report) => matchesFilter(report, activeFilter));
+
+  const reportIds = operationsData.fieldReports.map((r) => r.id);
+  const attachmentsMap = await getEntitiesAttachments("field_reports", reportIds);
+  const fieldReports = operationsData.fieldReports.map((r) => ({
+    ...r,
+    attachments: attachmentsMap[r.id] || [],
+  }));
+
+  const pendingTriageCount = fieldReports.filter(
+    (report) => report.status === "baru" || report.status === "perlu_verifikasi",
+  ).length;
+  const verifiedCount = fieldReports.filter(
+    (report) => report.status === "diverifikasi",
+  ).length;
+  const actionedCount = fieldReports.filter(
+    (report) =>
+      report.status === "ditindaklanjuti" || report.status === "dibuka_jadi_kejadian",
+  ).length;
+  const filteredOutCount = fieldReports.filter(
+    (report) => report.status === "ditolak" || report.status === "duplikat",
+  ).length;
 
   const reportStages = [
     {
-      label: "Laporan Baru",
-      detail: "Menunggu verifikasi data lapangan",
-      count: fieldReports.filter((report) => report.status === "baru").length,
+      label: "Menunggu Verifikasi",
+      detail: "Laporan baru & dalam proses triase",
+      count: pendingTriageCount,
       tone: "critical",
     },
     {
       label: "Diverifikasi",
-      detail: "Data valid & siap ditautkan ke kejadian",
-      count: fieldReports.filter((report) => report.status === "diverifikasi").length,
+      detail: "Data valid & siap dieskalasi / ditindaklanjuti",
+      count: verifiedCount,
       tone: "warning",
     },
     {
-      label: "Ditindaklanjuti",
-      detail: "Sudah masuk respon armada & posko",
-      count: fieldReports.filter((report) => report.status === "ditindaklanjuti").length,
+      label: "Ditindaklanjuti / Kejadian",
+      detail: "Masuk respon posko atau dibuka jadi kejadian",
+      count: actionedCount,
       tone: "teal",
     },
     {
-      label: "Ditolak / Duplikat",
+      label: "Duplikat & Ditolak",
       detail: "Disaring petugas triase, tidak masuk operasi",
-      count: fieldReports.filter((report) => report.status === "ditolak").length,
+      count: filteredOutCount,
       tone: "muted",
     },
   ];
@@ -124,37 +87,20 @@ export default async function ReportsPage({
     (report) => report.channel === "SMS Zero-Grid",
   ).length;
 
-  const filterCounts: Record<QueueFilter, number> = {
-    semua: fieldReports.length,
-    "perlu-verifikasi": reportStages[0].count,
-    terverifikasi: reportStages[1].count + reportStages[2].count,
-    "zero-grid": smsReportsCount,
-  };
-
   return (
     <div className="@container/main flex flex-col gap-6">
       {/* Top Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Laporan Situasi & SMS Zero-Grid
+          <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">
+            Laporan Situasi &amp; SMS Zero-Grid
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <p className="font-sans text-sm text-muted-foreground mt-0.5">
             Pusat triase laporan bencana dari warga, SMS offline darurat, dan tim lapangan.
           </p>
         </div>
         {capabilities.canCreateReport && (
-          <MutationAction
-            action={createFieldReport}
-            label="Buat Laporan Baru"
-            fields={{
-              location: "Posko Lapangan",
-              reporter: profile.fullName,
-              summary: "Laporan darurat lapangan memerlukan verifikasi segera.",
-              channel: profile.role === "field_officer" ? "Petugas" : "Web",
-              severity: "warning",
-            }}
-          />
+          <CreateReportDialog defaultReporter={profile.fullName} />
         )}
       </div>
 
@@ -167,20 +113,20 @@ export default async function ReportsPage({
                 <Clock3 className="size-4" />
               </div>
             </CardTitle>
-            <CardDescription>Menunggu Verifikasi</CardDescription>
+            <CardDescription className="font-sans text-xs font-medium text-muted-foreground">Menunggu Verifikasi</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="font-medium text-3xl tabular-nums leading-none tracking-tight">
+              <div className="font-heading font-semibold text-3xl tabular-nums leading-none tracking-tight">
                 {reportStages[0].count} Laporan
               </div>
               {reportStages[0].count > 0 && (
-                <Badge variant="destructive" className="animate-pulse">
+                <Badge variant="destructive" className="font-sans text-[10px] uppercase font-semibold tracking-tight">
                   Prioritas
                 </Badge>
               )}
             </div>
-            <p className="text-muted-foreground text-sm">Perlu validasi lokasi & keparahan</p>
+            <p className="font-sans text-muted-foreground text-xs">Perlu validasi lokasi &amp; keparahan</p>
           </CardContent>
         </Card>
 
@@ -191,13 +137,13 @@ export default async function ReportsPage({
                 <MessageSquareText className="size-4" />
               </div>
             </CardTitle>
-            <CardDescription>SMS Zero-Grid (Offline)</CardDescription>
+            <CardDescription className="font-sans text-xs font-medium text-muted-foreground">SMS Zero-Grid (Offline)</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-1">
-            <div className="font-medium text-3xl tabular-nums leading-none tracking-tight">
+            <div className="font-heading font-semibold text-3xl tabular-nums leading-none tracking-tight">
               {smsReportsCount} Pesan
             </div>
-            <p className="text-muted-foreground text-sm">Diterima tanpa koneksi internet</p>
+            <p className="font-sans text-muted-foreground text-xs">Diterima tanpa koneksi internet</p>
           </CardContent>
         </Card>
 
@@ -208,13 +154,13 @@ export default async function ReportsPage({
                 <ShieldCheck className="size-4" />
               </div>
             </CardTitle>
-            <CardDescription>Laporan Terverifikasi</CardDescription>
+            <CardDescription className="font-sans text-xs font-medium text-muted-foreground">Laporan Terverifikasi</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-1">
-            <div className="font-medium text-3xl tabular-nums leading-none tracking-tight">
+            <div className="font-heading font-semibold text-3xl tabular-nums leading-none tracking-tight">
               {reportStages[1].count} Laporan
             </div>
-            <p className="text-muted-foreground text-sm">Siap dieskalasi jadi kejadian resmi</p>
+            <p className="font-sans text-muted-foreground text-xs">Siap dieskalasi jadi kejadian resmi</p>
           </CardContent>
         </Card>
 
@@ -225,275 +171,59 @@ export default async function ReportsPage({
                 <CheckCircle2 className="size-4" />
               </div>
             </CardTitle>
-            <CardDescription>Telah Ditindaklanjuti</CardDescription>
+            <CardDescription className="font-sans text-xs font-medium text-muted-foreground">Telah Ditindaklanjuti</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-1">
-            <div className="font-medium text-3xl tabular-nums leading-none tracking-tight">
+            <div className="font-heading font-semibold text-3xl tabular-nums leading-none tracking-tight">
               {reportStages[2].count} Selesai
             </div>
-            <p className="text-muted-foreground text-sm">Masuk alur evakuasi & logistik</p>
+            <p className="font-sans text-muted-foreground text-xs">Masuk alur evakuasi &amp; logistik</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Main Grid: Queue Table & Simulator */}
-      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(19rem,0.6fr)]">
-        <Card className="shadow-xs overflow-hidden">
-          <CardHeader className="gap-3 py-4">
-            <div>
-              <CardTitle className="text-base">Antrean Triase Laporan Masuk</CardTitle>
-              <CardDescription>
-                Daftar laporan warga dan SMS Zero-Grid yang memerlukan tindakan petugas.
-              </CardDescription>
-            </div>
-            <div
-              role="group"
-              aria-label="Filter cepat antrean laporan"
-              className="flex flex-wrap items-center gap-1.5 rounded-xl border bg-muted/40 p-1.5"
-            >
-              {queueFilters.map((filter) => {
-                const isActive = filter === activeFilter;
-                return (
-                  <Button
-                    key={filter}
-                    asChild
-                    size="sm"
-                    variant={isActive ? "default" : "ghost"}
-                    className={cn(
-                      "h-8 gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-colors duration-200",
-                      isActive
-                        ? "shadow-xs"
-                        : "text-muted-foreground hover:bg-background hover:text-foreground dark:hover:bg-input/40",
-                    )}
-                  >
-                    <Link
-                      href={filter === "semua" ? "/laporan" : `/laporan?antrean=${filter}`}
-                      aria-current={isActive ? "true" : undefined}
-                      scroll={false}
-                    >
-                      {filterLabel[filter]}
-                      <span
-                        className={cn(
-                          "rounded-md px-1.5 py-0.5 text-[11px] tabular-nums",
-                          isActive ? "bg-primary-foreground/15" : "bg-muted-foreground/10",
-                        )}
-                      >
-                        {filterCounts[filter]}
-                      </span>
-                    </Link>
-                  </Button>
-                );
-              })}
-            </div>
+      {/* Main Grid: Queue Table & Simulator Panel */}
+      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_360px] items-start">
+        {/* Report Queue Table Card */}
+        <Card className="shadow-xs overflow-hidden min-w-0 border border-border/70">
+          <CardHeader className="py-3.5 px-4 sm:px-5">
+            <CardTitle className="font-heading text-base font-semibold tracking-tight text-foreground">
+              Antrean Triase Laporan Masuk
+            </CardTitle>
+            <CardDescription className="font-sans text-xs text-muted-foreground mt-0.5">
+              Daftar laporan warga dan SMS Zero-Grid yang memerlukan tindakan petugas.
+            </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
-            <Table>
-              <TableHeader className="bg-muted/30">
-                <TableRow>
-                  <TableHead className="text-xs">ID & Lokasi</TableHead>
-                  <TableHead className="text-xs">Saluran</TableHead>
-                  <TableHead className="text-xs">Ringkasan & Tingkat Keparahan</TableHead>
-                  <TableHead className="text-xs">Status</TableHead>
-                  {(capabilities.canVerifyReport || capabilities.canOpenIncident) && (
-                    <TableHead className="text-xs text-right whitespace-nowrap w-[1%]">Aksi Operasi</TableHead>
-                  )}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visibleReports.length === 0 && (
-                  <TableRow className="hover:bg-transparent">
-                    <TableCell
-                      colSpan={capabilities.canVerifyReport || capabilities.canOpenIncident ? 5 : 4}
-                      className="py-10 text-center text-xs text-muted-foreground"
-                    >
-                      Tidak ada laporan pada filter “{filterLabel[activeFilter]}”.
-                    </TableCell>
-                  </TableRow>
-                )}
-                {visibleReports.map((report) => {
-                  const needsTriage = report.status === "baru";
-                  return (
-                    <TableRow
-                      key={report.id}
-                      className={cn(
-                        "group text-xs transition-colors duration-200 hover:bg-muted/60",
-                        needsTriage &&
-                          "bg-amber-50/60 hover:bg-amber-100/70 dark:bg-amber-500/[0.06] dark:hover:bg-amber-500/[0.12]",
-                      )}
-                    >
-                      <TableCell className="font-medium">
-                        <div className="font-semibold text-foreground font-mono">{report.id}</div>
-                        <div className="text-[11px] text-muted-foreground">
-                          {report.location} · {report.receivedAt}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={
-                            report.channel === "SMS Zero-Grid"
-                              ? "border-purple-300 bg-purple-100 text-purple-900 dark:border-purple-500/40 dark:bg-purple-500/15 dark:text-purple-200"
-                              : ""
-                          }
-                        >
-                          {report.channel}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="min-w-64 max-w-sm">
-                        <p className="line-clamp-2 text-xs leading-relaxed">{report.summary}</p>
-                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                          <StatusBadge status={report.severity} className="w-fit" />
-                          {report.summary.includes("EVAKUASI JIWA") && (
-                            <Badge variant="destructive" className="text-[10px] uppercase font-bold tracking-tight">
-                              🚨 Disposisi SAR
-                            </Badge>
-                          )}
-                          {report.summary.includes("TINGGI") && (
-                            <Badge variant="outline" className="border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-[10px] font-semibold">
-                              🟢 Akurasi Tinggi
-                            </Badge>
-                          )}
-                          {report.summary.includes("SEDANG") && (
-                            <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[10px] font-semibold">
-                              🟡 Perlu Call
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "gap-1 text-[11px] font-semibold",
-                            reportStatusStyle[report.status],
-                          )}
-                        >
-                          {report.status === "baru" && <Clock3 aria-hidden="true" />}
-                          {report.status === "diverifikasi" && <ShieldCheck aria-hidden="true" />}
-                          {report.status === "ditindaklanjuti" && (
-                            <CheckCircle2 aria-hidden="true" />
-                          )}
-                          {report.status === "ditolak" && <Ban aria-hidden="true" />}
-                          {reportStatusLabel[report.status]}
-                        </Badge>
-                      </TableCell>
-                      {(capabilities.canVerifyReport || capabilities.canOpenIncident) && (
-                        <TableCell className="text-right whitespace-nowrap">
-                          <div className="inline-flex items-center justify-end gap-1.5 whitespace-nowrap">
-                            {(() => {
-                              const phoneMatch = report.summary.match(/\[KONTAK:\s*([0-9+\s-]+)\]/);
-                              const parsedPhone = phoneMatch ? phoneMatch[1].trim() : null;
-                              if (!parsedPhone) return null;
-                              return (
-                                <Button
-                                  asChild
-                                  size="sm"
-                                  variant="outline"
-                                  title={`Panggilan cepat telepon pelapor: ${parsedPhone}`}
-                                >
-                                  <a href={`tel:${parsedPhone}`}>
-                                    <PhoneCall className="size-3.5" />
-                                    <span>Call {parsedPhone}</span>
-                                  </a>
-                                </Button>
-                              );
-                            })()}
-                            {capabilities.canVerifyReport && needsTriage && (
-                              <>
-                                <MutationAction
-                                  action={triageReportWithAIAction}
-                                  label="Triase AI"
-                                  pendingLabel="Menganalisis..."
-                                  fields={{ code: report.id }}
-                                  size="sm"
-                                  variant="outline"
-                                  showMessage={false}
-                                />
-                                <MutationAction
-                                  action={verifyFieldReport}
-                                  label="Verifikasi"
-                                  pendingLabel="Memverifikasi..."
-                                  fields={{ code: report.id }}
-                                  size="sm"
-                                  variant="default"
-                                  icon={<Check className="size-3.5" aria-hidden="true" />}
-                                  showMessage={false}
-                                />
-                                {capabilities.canRejectReport && (
-                                  <ConfirmMutationAction
-                                    action={rejectFieldReport}
-                                    label="Tolak / Duplikat"
-                                    title={`Tolak laporan ${report.id}?`}
-                                    description={`Laporan di ${report.location} akan ditandai ditolak atau duplikat dan keluar dari antrean triase.`}
-                                    consequence="Status laporan menjadi ditolak, catatan verifikasi tersimpan, dan keputusan tercatat di audit log."
-                                    fields={{
-                                      code: report.id,
-                                      reason: `Laporan ${report.id} ditandai duplikat atau tidak valid saat triase.`,
-                                    }}
-                                    variant="outline"
-                                    size="sm"
-                                    icon={<X className="size-3.5" aria-hidden="true" />}
-                                  />
-                                )}
-                              </>
-                            )}
-                            {capabilities.canVerifyReport &&
-                              report.status === "diverifikasi" && (
-                                <MutationAction
-                                  action={verifyFieldReport}
-                                  label="Tindak Lanjut"
-                                  pendingLabel="Memproses..."
-                                  fields={{ code: report.id }}
-                                  variant="secondary"
-                                  size="sm"
-                                  showMessage={false}
-                                  buttonClassName="h-8"
-                                />
-                              )}
-                            {capabilities.canOpenIncident &&
-                              report.status !== "baru" &&
-                              report.status !== "ditolak" && (
-                                <ConfirmMutationAction
-                                  action={openEventFromReport}
-                                  label="Buka Kejadian"
-                                  title={`Buka Ruang Kejadian dari ${report.id}?`}
-                                  description={`Laporan di ${report.location} akan dijadikan status kejadian bencana aktif.`}
-                                  consequence="Kejadian baru akan muncul di dashboard komando dan live map."
-                                  fields={{
-                                    code: report.id,
-                                    name: `Kejadian ${report.location}`,
-                                  }}
-                                  size="sm"
-                                  triggerClassName="h-8"
-                                />
-                              )}
-                            {report.status === "ditolak" && (
-                              <span className="text-[11px] text-muted-foreground">
-                                Tidak ada aksi lanjutan
-                              </span>
-                            )}
-                          </div>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+            <ReportQueueTable
+              reports={fieldReports}
+              initialFilter={activeFilter}
+              canVerifyReport={capabilities.canVerifyReport}
+              canOpenIncident={capabilities.canOpenIncident}
+              canRejectReport={capabilities.canRejectReport}
+            />
           </CardContent>
         </Card>
 
-        <ZeroGridSimulator />
+        {/* SMS Zero-Grid Manual Input & Review Panel */}
+        <div className="w-full xl:sticky xl:top-6 self-start h-fit min-w-0">
+          <ZeroGridSimulator
+            smsMessages={smsMessages}
+            canVerify={capabilities.canVerifyReport}
+          />
+        </div>
       </div>
 
       {/* Verification Stages Overview */}
-      <Card className="shadow-xs">
+      <Card className="shadow-xs border border-border/70">
         <CardHeader className="py-4">
           <div className="flex items-center gap-2">
             <RadioTower className="size-5 text-primary" />
             <div>
-              <CardTitle className="text-base">Alur Pipeline Verifikasi</CardTitle>
-              <CardDescription>
+              <CardTitle className="font-heading text-base font-semibold tracking-tight text-foreground">
+                Alur Pipeline Verifikasi
+              </CardTitle>
+              <CardDescription className="font-sans text-xs text-muted-foreground mt-0.5">
                 Progres laporan dari penerimaan awal hingga aksi tanggap darurat resmi.
               </CardDescription>
             </div>
@@ -507,15 +237,15 @@ export default async function ReportsPage({
             return (
               <div
                 key={stage.label}
-                className="relative rounded-lg border bg-muted/20 p-4 space-y-3 transition-colors duration-200 hover:border-primary/30 hover:bg-muted/40"
+                className="relative rounded-lg border bg-muted/20 p-4 space-y-3 transition-colors duration-150 hover:border-primary/30 hover:bg-muted/40 font-sans"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-semibold text-foreground">{stage.label}</span>
+                  <span className="font-heading text-xs font-semibold text-foreground">{stage.label}</span>
                   <Badge variant="outline" className="text-xs font-mono">
                     {stage.count} Laporan
                   </Badge>
                 </div>
-                <p className="text-[11px] text-muted-foreground">{stage.detail}</p>
+                <p className="font-sans text-[11px] text-muted-foreground leading-relaxed">{stage.detail}</p>
                 <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                   <div
                     className="h-full rounded-full bg-primary transition-all duration-500"

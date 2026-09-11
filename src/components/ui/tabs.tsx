@@ -26,7 +26,7 @@ function Tabs({
 }
 
 const tabsListVariants = cva(
-  "group/tabs-list inline-flex w-fit items-center justify-center rounded-lg p-[3px] text-muted-foreground group-data-[orientation=horizontal]/tabs:h-9 group-data-[orientation=vertical]/tabs:h-fit group-data-[orientation=vertical]/tabs:flex-col data-[variant=line]:rounded-none",
+  "group/tabs-list inline-flex h-9 w-fit items-center justify-center rounded-lg p-[3px] text-muted-foreground group-data-[orientation=vertical]/tabs:h-fit group-data-[orientation=vertical]/tabs:flex-col data-[variant=line]:rounded-none",
   {
     variants: {
       variant: {
@@ -43,16 +43,94 @@ const tabsListVariants = cva(
 function TabsList({
   className,
   variant = "default",
+  children,
   ...props
 }: React.ComponentProps<typeof TabsPrimitive.List> &
   VariantProps<typeof tabsListVariants>) {
+  const listRef = React.useRef<HTMLDivElement>(null)
+  const pillRef = React.useRef<HTMLSpanElement>(null)
+
+  const movePill = React.useCallback((animate: boolean) => {
+    const list = listRef.current
+    const pill = pillRef.current
+    if (!list || !pill) return
+
+    const activeTrigger = list.querySelector<HTMLElement>(
+      '[data-state="active"][role="tab"], [aria-selected="true"][role="tab"]'
+    )
+    if (!activeTrigger) {
+      pill.style.opacity = "0"
+      return
+    }
+
+    const left = activeTrigger.offsetLeft
+    const top = activeTrigger.offsetTop
+    const width = activeTrigger.offsetWidth
+    const height = activeTrigger.offsetHeight
+
+    if (!animate) {
+      const prev = pill.style.transition
+      pill.style.transition = "none"
+      pill.style.transform = `translate3d(${left}px, ${top}px, 0)`
+      pill.style.width = `${width}px`
+      pill.style.height = `${height}px`
+      pill.style.opacity = "1"
+      void pill.offsetWidth
+      pill.style.transition = prev
+    } else {
+      pill.style.transform = `translate3d(${left}px, ${top}px, 0)`
+      pill.style.width = `${width}px`
+      pill.style.height = `${height}px`
+      pill.style.opacity = "1"
+    }
+  }, [])
+
+  React.useEffect(() => {
+    const list = listRef.current
+    if (!list) return
+
+    const frameId = window.requestAnimationFrame(() => movePill(false))
+
+    const observer = new MutationObserver(() => {
+      movePill(true)
+    })
+    observer.observe(list, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-state", "aria-selected"],
+    })
+
+    const onResize = () => movePill(false)
+    window.addEventListener("resize", onResize)
+
+    return () => {
+      window.cancelAnimationFrame(frameId)
+      observer.disconnect()
+      window.removeEventListener("resize", onResize)
+    }
+  }, [movePill])
+
   return (
     <TabsPrimitive.List
+      ref={listRef}
       data-slot="tabs-list"
       data-variant={variant}
-      className={cn(tabsListVariants({ variant }), className)}
+      className={cn(tabsListVariants({ variant }), "relative", className)}
       {...props}
-    />
+    >
+      <span
+        ref={pillRef}
+        data-slot="tabs-pill"
+        className={cn(
+          "pointer-events-none absolute left-0 top-0 opacity-0 z-0 will-change-[transform,width]",
+          variant === "line"
+            ? "h-0.5 bg-foreground bottom-0 top-auto rounded-none transition-[transform,width] duration-[var(--tabs-dur,250ms)] ease-[var(--tabs-ease,cubic-bezier(0.22,1,0.36,1))]"
+            : "rounded-md bg-background shadow-xs border border-border/40 transition-[transform,width,height] duration-[var(--tabs-dur,250ms)] ease-[var(--tabs-ease,cubic-bezier(0.22,1,0.36,1))]"
+        )}
+        aria-hidden="true"
+      />
+      {children}
+    </TabsPrimitive.List>
   )
 }
 
@@ -64,10 +142,10 @@ function TabsTrigger({
     <TabsPrimitive.Trigger
       data-slot="tabs-trigger"
       className={cn(
-        "relative inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap text-foreground/60 transition-all group-data-[orientation=vertical]/tabs:w-full group-data-[orientation=vertical]/tabs:justify-start hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 group-data-[variant=default]/tabs-list:data-[state=active]:shadow-sm group-data-[variant=line]/tabs-list:data-[state=active]:shadow-none dark:text-muted-foreground dark:hover:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        "group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-[state=active]:bg-transparent dark:group-data-[variant=line]/tabs-list:data-[state=active]:border-transparent dark:group-data-[variant=line]/tabs-list:data-[state=active]:bg-transparent",
-        "data-[state=active]:bg-background data-[state=active]:text-foreground dark:data-[state=active]:border-input dark:data-[state=active]:bg-input/30 dark:data-[state=active]:text-foreground",
-        "after:absolute after:bg-foreground after:opacity-0 after:transition-opacity group-data-[orientation=horizontal]/tabs:after:inset-x-0 group-data-[orientation=horizontal]/tabs:after:bottom-[-5px] group-data-[orientation=horizontal]/tabs:after:h-0.5 group-data-[orientation=vertical]/tabs:after:inset-y-0 group-data-[orientation=vertical]/tabs:after:-right-1 group-data-[orientation=vertical]/tabs:after:w-0.5 group-data-[variant=line]/tabs-list:data-[state=active]:after:opacity-100",
+        "relative z-1 inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap text-foreground/60 transition-colors duration-[var(--tabs-dur,250ms)] ease-[var(--tabs-ease,cubic-bezier(0.22,1,0.36,1))] group-data-[orientation=vertical]/tabs:w-full group-data-[orientation=vertical]/tabs:justify-start hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50",
+        "data-[state=active]:text-foreground data-[state=active]:bg-transparent shadow-none",
+        "dark:text-muted-foreground dark:hover:text-foreground dark:data-[state=active]:text-foreground",
+        "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className
       )}
       {...props}

@@ -65,13 +65,13 @@ export function RecommendationCard({
           </div>
           <Badge
             variant="outline"
-            className="text-[10px] gap-1 font-mono border-orange-500/30 text-orange-600 dark:text-orange-400 bg-orange-500/10 font-medium"
+            className="gap-1 border-orange-500/30 bg-orange-500/10 text-[10px] font-medium text-orange-700 dark:text-orange-400"
           >
             <Cpu className="size-3" />
-            {isGroq ? recommendation.source : "Groq AI Engine"}
+            {isGroq ? recommendation.source?.replace(/AI Engine/gi, "Mesin AI") : "Mesin AI Groq"}
           </Badge>
         </div>
-        <CardTitle className="text-lg leading-7">Prioritas: {priorityText(recommendation.title)}</CardTitle>
+        <CardTitle className="font-display text-lg leading-7">Prioritas: {priorityText(recommendation.title)}</CardTitle>
         <CardDescription className="leading-6">{recommendation.rationale}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4 pb-5">
@@ -93,7 +93,7 @@ export function RecommendationCard({
         </div>
         <div className="rounded-xl border border-dashed bg-muted/45 p-3 text-xs leading-5 text-muted-foreground">
           <p className="flex items-center gap-2 font-medium text-foreground"><DatabaseZap className="size-3.5" /> Dasar perhitungan</p>
-          <p className="mt-1">Dianalisis secara cerdas oleh Groq AI dari data posko, stok, kebutuhan, kelompok rentan, dan laporan lapangan real-time.</p>
+          <p className="mt-1">Dianalisis oleh Groq AI dari data posko, stok, kebutuhan, kelompok rentan, dan laporan lapangan waktu nyata.</p>
         </div>
         {action ? <div className="grid gap-2">{action}</div> : null}
 
@@ -101,7 +101,7 @@ export function RecommendationCard({
           {canRegenerate ? (
             <MutationAction
               action={generateAIRecommendationAction}
-              label="Analisis Real-Time Groq"
+              label="Analisis Waktu Nyata"
               variant="default"
               className="w-full bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white shadow-xs font-medium"
             />

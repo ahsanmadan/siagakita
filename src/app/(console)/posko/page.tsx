@@ -7,8 +7,10 @@ import {
   Plus,
   Users,
 } from "lucide-react";
+import Link from "next/link";
 import { ActionForm } from "@/components/action-form";
 import { RecommendationCard } from "@/components/recommendation-card";
+import { ShelterDetailDialog } from "@/components/shelter-detail-dialog";
 import { ShelterQuickForms } from "@/components/shelter-quick-forms";
 import { SubmitButton } from "@/components/submit-button";
 import { StatusBadge } from "@/components/status-badge";
@@ -42,7 +44,7 @@ import {
 import { requireRole } from "@/lib/auth";
 import { pickShelterRecommendation } from "@/lib/recommendation-context";
 import { roleCapabilities } from "@/lib/role-ui";
-import { getOperationsData } from "@/lib/repositories/operations";
+import { getEntitiesAttachments, getOperationsData } from "@/lib/repositories/operations";
 import { cn } from "@/lib/utils";
 
 type OccupancyTone = {
@@ -82,7 +84,13 @@ function occupancyTone(ratio: number): OccupancyTone {
 export default async function ShelterPage() {
   const profile = await requireRole(["admin", "bpbd_operator", "shelter_manager", "warehouse_manager"], "/dashboard");
   const capabilities = roleCapabilities(profile.role);
-  const { recommendations, shelters } = await getOperationsData();
+  const { recommendations, shelters: baseShelters } = await getOperationsData();
+  const shelterIds = baseShelters.map((s) => s.dbId || s.id);
+  const attachmentsMap = await getEntitiesAttachments("shelters", shelterIds);
+  const shelters = baseShelters.map((s) => ({
+    ...s,
+    attachments: attachmentsMap[s.dbId] || attachmentsMap[s.id] || [],
+  }));
 
   const totals = shelters.reduce(
     (result, shelter) => ({
@@ -112,28 +120,28 @@ export default async function ShelterPage() {
       {/* Top Header Strip */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+          <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">
             Posko Pengungsian & Kelompok Rentan
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <p className="font-sans text-sm text-muted-foreground mt-0.5">
             Monitoring kapasitas posko, perlindungan kelompok rentan, dan kebutuhan logistik darurat.
           </p>
         </div>
         {capabilities.canRegisterShelter && (
           <Dialog>
             <DialogTrigger asChild>
-              <Button size="sm" className="gap-1.5 self-start sm:self-auto">
+              <Button size="sm" className="font-sans gap-1.5 self-start sm:self-auto">
                 <Plus className="size-4" /> Daftarkan Posko
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Registrasi Posko Pengungsian Baru</DialogTitle>
-                <DialogDescription>
+                <DialogTitle className="font-heading font-bold text-base">Registrasi Posko Pengungsian Baru</DialogTitle>
+                <DialogDescription className="font-sans text-xs">
                   Masukkan identitas lokasi dan kapasitas maksimal posko.
                 </DialogDescription>
               </DialogHeader>
-              <ActionForm action={createShelterAction} className="py-2 gap-3">
+              <ActionForm action={createShelterAction} className="py-2 gap-3 font-sans">
                 <div className="grid gap-1.5">
                   <Label htmlFor="shelter-name" className="text-xs">
                     Nama Posko
@@ -176,10 +184,10 @@ export default async function ShelterPage() {
                 <Users className="size-4" />
               </div>
             </CardTitle>
-            <CardDescription>Total Jiwa di Pengungsian</CardDescription>
+            <CardDescription className="font-sans">Total Jiwa di Pengungsian</CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col gap-1">
-            <div className="font-medium text-3xl tabular-nums leading-none tracking-tight">
+          <CardContent className="flex flex-col gap-1 font-sans">
+            <div className="font-kpi font-medium text-3xl tabular-nums leading-none tracking-tight">
               {totals.total.toLocaleString("id-ID")} Jiwa
             </div>
             <p className="text-muted-foreground text-sm">Tersebar di {shelters.length} posko aktif</p>
@@ -193,10 +201,10 @@ export default async function ShelterPage() {
                 <Baby className="size-4" />
               </div>
             </CardTitle>
-            <CardDescription>Balita & Anak-anak</CardDescription>
+            <CardDescription className="font-sans">Balita & Anak-anak</CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col gap-1">
-            <div className="font-medium text-3xl tabular-nums leading-none tracking-tight">
+          <CardContent className="flex flex-col gap-1 font-sans">
+            <div className="font-kpi font-medium text-3xl tabular-nums leading-none tracking-tight">
               {totals.children.toLocaleString("id-ID")} Anak
             </div>
             <p className="text-muted-foreground text-sm">Prioritas MPASI, susu & selimut</p>
@@ -210,10 +218,10 @@ export default async function ShelterPage() {
                 <PersonStanding className="size-4" />
               </div>
             </CardTitle>
-            <CardDescription>Lansia & Ibu Hamil</CardDescription>
+            <CardDescription className="font-sans">Lansia & Ibu Hamil</CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col gap-1">
-            <div className="font-medium text-3xl tabular-nums leading-none tracking-tight">
+          <CardContent className="flex flex-col gap-1 font-sans">
+            <div className="font-kpi font-medium text-3xl tabular-nums leading-none tracking-tight">
               {(totals.elderly + totals.vulnerable).toLocaleString("id-ID")} Jiwa
             </div>
             <p className="text-muted-foreground text-sm">Butuh layanan medis & tenda khusus</p>
@@ -227,15 +235,15 @@ export default async function ShelterPage() {
                 <AlertTriangle className="size-4" />
               </div>
             </CardTitle>
-            <CardDescription>Posko Melebihi Kapasitas</CardDescription>
+            <CardDescription className="font-sans">Posko Melebihi Kapasitas</CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col gap-1">
+          <CardContent className="flex flex-col gap-1 font-sans">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="font-medium text-3xl tabular-nums leading-none tracking-tight">
+              <div className="font-kpi font-medium text-3xl tabular-nums leading-none tracking-tight">
                 {overCapacityShelters} Posko
               </div>
               {overCapacityShelters > 0 && (
-                <Badge variant="destructive" className="animate-pulse">
+                <Badge variant="destructive" className="animate-pulse font-sans">
                   Kritis
                 </Badge>
               )}
@@ -244,6 +252,8 @@ export default async function ShelterPage() {
           </CardContent>
         </Card>
       </div>
+
+
 
       {capabilities.canUpdateShelter && shelters[0] && (
         <ShelterQuickForms
@@ -257,12 +267,12 @@ export default async function ShelterPage() {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(19rem,0.6fr)]">
         <Card className="shadow-xs overflow-hidden">
           <CardHeader className="py-4">
-            <CardTitle className="text-base">Daftar Posko Pengungsian Aktif</CardTitle>
-            <CardDescription>
+            <CardTitle className="font-heading text-base font-bold">Daftar Posko Pengungsian Aktif</CardTitle>
+            <CardDescription className="font-sans text-xs">
               Status keterisian tempat tidur, lokasi, dan kondisi fasilitas darurat.
             </CardDescription>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="p-0 font-sans">
             <Table>
               <TableHeader className="bg-muted/30">
                 <TableRow>
@@ -270,6 +280,7 @@ export default async function ShelterPage() {
                   <TableHead className="text-xs">Jumlah Pengungsi</TableHead>
                   <TableHead className="text-xs">Keterisian Kapasitas</TableHead>
                   <TableHead className="text-xs">Status</TableHead>
+                  <TableHead className="text-xs text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -316,6 +327,17 @@ export default async function ShelterPage() {
                       <TableCell>
                         <StatusBadge status={shelter.status} />
                       </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <ShelterDetailDialog shelter={shelter} />
+                          <a
+                            href="#shelter-quick-forms-section"
+                            className="inline-flex items-center rounded-md border border-border/80 bg-card px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted hover:border-primary/50 transition-colors shadow-2xs"
+                          >
+                            Kelola
+                          </a>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   );
                 })}
@@ -332,12 +354,12 @@ export default async function ShelterPage() {
       {/* Critical Needs Gap Table */}
       <Card className="shadow-xs overflow-hidden">
         <CardHeader className="py-4">
-          <CardTitle className="text-base">Kesenjangan Kebutuhan Logistik Lintas Posko</CardTitle>
-          <CardDescription>
+          <CardTitle className="font-heading text-base font-bold">Kesenjangan Kebutuhan Logistik Lintas Posko</CardTitle>
+          <CardDescription className="font-sans text-xs">
             Defisit pasokan yang diminta posko dibanding ketersediaan aktual di lapangan.
           </CardDescription>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 font-sans">
           <Table>
             <TableHeader className="bg-muted/30">
               <TableRow>
@@ -346,7 +368,8 @@ export default async function ShelterPage() {
                 <TableHead className="text-xs">Jumlah Diminta</TableHead>
                 <TableHead className="text-xs">Tersedia di Posko</TableHead>
                 <TableHead className="text-xs">Kesenjangan (Defisit)</TableHead>
-                <TableHead className="text-xs text-right">Tingkat Urgensi</TableHead>
+                <TableHead className="text-xs">Tingkat Urgensi</TableHead>
+                <TableHead className="text-xs text-right">Tindak Lanjut</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -380,11 +403,21 @@ export default async function ShelterPage() {
                         ? `-${deficit.toLocaleString("id-ID")} ${need.unit}`
                         : "Terpenuhi"}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell>
                       <StatusBadge
                         status={need.urgency}
-                        className="min-w-[8.5rem] justify-center text-[11px]"
+                        className="min-w-[7.5rem] justify-center text-[11px]"
                       />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end">
+                        <Link
+                          href="/logistik"
+                          className="inline-flex items-center rounded-md bg-primary/10 border border-primary/20 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors shadow-2xs"
+                        >
+                          Alokasikan
+                        </Link>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );

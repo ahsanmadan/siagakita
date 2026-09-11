@@ -1,12 +1,11 @@
 "use client";
 
-import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ActivityLogIcon, BoxIcon, CheckCircledIcon, Cross2Icon, DrawingPinFilledIcon, HomeIcon, ReloadIcon, UpdateIcon } from "@radix-ui/react-icons";
-import maplibregl, { type IControl, type Map as MapLibreMap, type Marker, type PaddingOptions } from "maplibre-gl";
-import { Button } from "@/components/ui/button";
-import { StatusBadge } from "@/components/status-badge";
+import { type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { UpdateIcon } from "@radix-ui/react-icons";
+import maplibregl, { type Map as MapLibreMap, type Marker, type PaddingOptions } from "maplibre-gl";
+import { PublicMapStatus } from "@/components/public-map-status";
 import { cn } from "@/lib/utils";
-import type { CrisisStatus } from "@/lib/types";
+import type { CrisisStatus, DistributionStatus } from "@/lib/types";
 
 export interface VolcanoCctv {
   locationName: string;
@@ -55,12 +54,31 @@ export interface MapPoint {
   timestampMs?: number;
   source?: string;
   sourceUrl?: string;
+  // Logistics Fleet Tracking (Last Known Update Model)
+  isStale?: boolean;
+  vehicleCode?: string;
+  vehicleName?: string;
+  destinationShelter?: string;
+  cargoSummary?: string;
+  progressPercent?: number;
+  etaText?: string;
+  distributionStatus?: DistributionStatus;
+  lastLocationName?: string;
+  driverNote?: string;
+  checkpointHistory?: Array<{
+    status: string;
+    location: string;
+    note?: string | null;
+    updatedByRole: string;
+    createdAt: string;
+  }>;
 }
 
 type MarkerRecord = {
+  id: string;
   marker: Marker;
   element: HTMLButtonElement;
-  point: MapPoint;
+  point?: MapPoint;
 };
 
 type CameraFocusMode = "operational" | "dynamic";
@@ -108,16 +126,34 @@ const singlePointFocusRadius = 0.18;
 const operationalMaxZoom = 10.5;
 const operationalSourceId = "siagakita-operational-points";
 const distributionSourceId = "siagakita-distribution-lines";
+const publicClusterSourceId = "siagakita-public-clusters";
+const publicClusterCircleLayerId = "siagakita-public-cluster-circles";
+const publicClusterCountLayerId = "siagakita-public-cluster-count";
 const openFreeMapLibertyStyle = "https://tiles.openfreemap.org/styles/liberty";
-const locationNoticeMessage = "SiagaKita belum memiliki izin untuk menggunakan lokasi Anda.";
+const publicClusterMaxZoom = 8.75;
+const publicClusterPixelRadius = 48;
 
-const markerLegend = [
-  { label: "Incident", kind: "Kejadian" as const, icon: ActivityLogIcon, tone: "bg-status-critical text-white" },
-  { label: "Volcano", kind: "Gunung Api" as const, icon: ActivityLogIcon, tone: "bg-orange-600 text-white" },
-  { label: "Shelter", kind: "Posko" as const, icon: HomeIcon, tone: "bg-primary text-primary-foreground" },
-  { label: "Critical Need", kind: "Critical Need" as const, icon: BoxIcon, tone: "bg-status-warning text-foreground" },
-  { label: "Distribution", kind: "Distribution" as const, icon: CheckCircledIcon, tone: "bg-status-info text-white" },
-];
+function geographicPoints(points: MapPoint[]) {
+  const pointsById = new Map<string, MapPoint>();
+
+  for (const point of points) {
+    if (
+      !point.id ||
+      !Number.isFinite(point.longitude) ||
+      !Number.isFinite(point.latitude) ||
+      (point.longitude === 0 && point.latitude === 0) ||
+      point.longitude < -180 ||
+      point.longitude > 180 ||
+      point.latitude < -90 ||
+      point.latitude > 90
+    ) continue;
+
+    pointsById.set(point.id, point);
+  }
+
+  return [...pointsById.values()];
+}
+
 
 function markerIconSvg(kind: MapPoint["kind"]) {
   if (kind === "Posko") {
@@ -137,41 +173,13 @@ function markerIconSvg(kind: MapPoint["kind"]) {
     return '<svg class="crisis-marker-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>';
   }
   if (kind === "Distribution") {
-    // Package box clean glyph
-    return '<svg class="crisis-marker-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>';
+    // Truck clean glyph for logistics vehicle fleet
+    return '<svg class="crisis-marker-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>';
   }
   // Disaster / Event — Emergency pin with beacon
   return '<svg class="crisis-marker-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3" fill="currentColor"/></svg>';
 }
 
-function createOperationalLegendControl(): IControl {
-  let container: HTMLDivElement | null = null;
-
-  return {
-    onAdd() {
-      container = document.createElement("div");
-      container.className = "maplibregl-ctrl rounded-xl border bg-card/90 p-3 shadow-sm backdrop-blur";
-      container.setAttribute("aria-label", "Crisis Situation Map legend");
-      container.innerHTML = `
-        <div class="grid max-w-[16rem] grid-cols-2 gap-2">
-          ${markerLegend.map(({ label, kind, tone }) => `
-            <div class="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-              <span class="grid size-6 place-items-center rounded-lg ${tone}">
-                ${markerIconSvg(kind)}
-              </span>
-              <span>${label}</span>
-            </div>
-          `).join("")}
-        </div>
-      `;
-      return container;
-    },
-    onRemove() {
-      container?.remove();
-      container = null;
-    },
-  };
-}
 
 function primaryIncident(points: MapPoint[]) {
   return points.find((point) => incidentKinds.has(point.kind) && point.status !== "safe") ??
@@ -263,10 +271,21 @@ function boundsForPoints(points: MapPoint[], mode: CameraFocusMode = "operationa
 }
 
 function markerKindLabel(kind: MapPoint["kind"]) {
-  if (kind === "Kejadian" || kind === "Gempa") return "Incident";
-  if (kind === "Gunung Api") return "Volcano";
-  if (kind === "Posko") return "Shelter";
+  if (kind === "Kejadian" || kind === "Gempa") return "Kejadian";
+  if (kind === "Gunung Api") return "Gunung api";
+  if (kind === "Posko") return "Posko";
+  if (kind === "Critical Need") return "Kebutuhan kritis";
+  if (kind === "Distribution") return "Mobil Logistik";
   return kind;
+}
+
+function markerStatusLabel(status: CrisisStatus) {
+  return {
+    critical: "Kritis",
+    major: "Siaga",
+    warning: "Waspada",
+    safe: "Aman",
+  }[status];
 }
 
 function mapStyleUrl() {
@@ -425,6 +444,81 @@ function syncOperationalLayers(map: MapLibreMap, points: MapPoint[]) {
   }
 }
 
+function syncPublicClusterLayers(map: MapLibreMap, points: MapPoint[], selectedPointId?: string) {
+  const clusterPoints = points.filter((point) => point.id !== selectedPointId);
+  const source = map.getSource(publicClusterSourceId);
+
+  if (hasSetData(source)) {
+    source.setData(pointFeatures(clusterPoints));
+  } else {
+    map.addSource(publicClusterSourceId, {
+      type: "geojson",
+      data: pointFeatures(clusterPoints),
+      cluster: true,
+      clusterMaxZoom: publicClusterMaxZoom,
+      clusterRadius: publicClusterPixelRadius,
+      clusterProperties: {
+        dangerCount: ["+", ["case", ["any", ["==", ["get", "status"], "critical"], ["==", ["get", "kind"], "Critical Need"]], 1, 0]],
+        warningCount: ["+", ["case", ["all", ["in", ["get", "kind"], ["literal", ["Gunung Api", "Gempa"]]], ["in", ["get", "status"], ["literal", ["major", "warning"]]]], 1, 0]],
+        logisticsCount: ["+", ["case", ["in", ["get", "kind"], ["literal", ["Posko", "Distribution"]]], 1, 0]],
+      },
+    });
+  }
+
+  if (!map.getLayer(publicClusterCircleLayerId)) {
+    map.addLayer({
+      id: publicClusterCircleLayerId,
+      type: "circle",
+      source: publicClusterSourceId,
+      filter: ["has", "point_count"],
+      paint: {
+        "circle-color": [
+          "case",
+          [">", ["get", "dangerCount"], 0], "#dc2626",
+          [">", ["get", "warningCount"], 0], "#ea580c",
+          ["==", ["get", "logisticsCount"], ["get", "point_count"]], "#2563eb",
+          "#64748b",
+        ],
+        "circle-radius": ["step", ["get", "point_count"], 20, 10, 23, 30, 27],
+        "circle-stroke-width": 0,
+      },
+    });
+  }
+
+  if (!map.getLayer(publicClusterCountLayerId)) {
+    map.addLayer({
+      id: publicClusterCountLayerId,
+      type: "symbol",
+      source: publicClusterSourceId,
+      filter: ["has", "point_count"],
+      layout: {
+        "text-field": ["get", "point_count_abbreviated"],
+        "text-size": 12,
+        "text-allow-overlap": true,
+      },
+      paint: {
+        "text-color": "#ffffff",
+      },
+    });
+  }
+}
+
+function markerPointsForMap(map: MapLibreMap, points: MapPoint[], publicMode: boolean, selectedPointId?: string, focusedPointId?: string) {
+  if (!publicMode) return points;
+
+  const pinnedIds = new Set([selectedPointId, focusedPointId].filter(Boolean));
+  if (!map.getSource(publicClusterSourceId) || !map.isSourceLoaded(publicClusterSourceId)) {
+    return points.filter((point) => pinnedIds.has(point.id));
+  }
+
+  const unclusteredIds = new Set(
+    map.querySourceFeatures(publicClusterSourceId, { filter: ["!", ["has", "point_count"]] })
+      .map((feature) => String(feature.properties?.id)),
+  );
+
+  return points.filter((point) => pinnedIds.has(point.id) || unclusteredIds.has(point.id));
+}
+
 function popupNodeForPoint(point: MapPoint, publicMode: boolean) {
   const popupNode = document.createElement("div");
   popupNode.className = "min-w-56 p-1";
@@ -436,21 +530,33 @@ function popupNodeForPoint(point: MapPoint, publicMode: boolean) {
   kind.textContent = markerKindLabel(point.kind);
   const status = document.createElement("span");
   status.className = "rounded-full border px-2 py-0.5";
-  status.textContent = point.status;
+  status.textContent = point.kind === "Distribution"
+    ? (point.isStale ? "Update Terakhir" : "Dalam Perjalanan")
+    : markerStatusLabel(point.status);
   meta.append(kind, status);
   const location = document.createElement("p");
   location.className = "mt-1 text-xs opacity-70";
   location.textContent = point.location;
   const detail = document.createElement("p");
   detail.className = "mt-2 text-xs leading-5";
-  detail.textContent = publicMode ? (point.kind === "Gunung Api" || point.kind === "Gempa" ? point.detail : "Info aman untuk warga.") : point.detail;
+  detail.textContent = publicMode
+    ? point.kind === "Gunung Api" || point.kind === "Gempa" || point.kind === "Distribution"
+      ? point.detail
+      : "Info aman untuk warga."
+    : point.detail;
   const updated = document.createElement("p");
   updated.className = "mt-2 text-xs opacity-60";
-  updated.textContent = point.updatedAt
-    ? `Diperbarui ${point.updatedAt}${point.source ? ` · ${point.source}` : ""}`
-    : point.source
-      ? `Sumber ${point.source}`
-      : "";
+  if (point.kind === "Distribution") {
+    updated.textContent = point.isStale
+      ? `Terakhir terlihat ${point.updatedAt} (Menunggu update supir)`
+      : `Lokasi diperbarui ${point.updatedAt}${point.source ? ` · ${point.source}` : ""}`;
+  } else {
+    updated.textContent = point.updatedAt
+      ? `Diperbarui ${point.updatedAt}${point.source ? ` · ${point.source}` : ""}`
+      : point.source
+        ? `Sumber ${point.source}`
+        : "";
+  }
   popupNode.append(title, meta, location);
 
   if (point.kind === "Gunung Api") {
@@ -538,12 +644,14 @@ function syncMarkers(
   publicMode: boolean,
   selectedPointId: string | undefined,
   onPointSelect: ((point: MapPoint) => void) | undefined,
+  focusedPointId?: string,
 ) {
-  const recordsById = new Map(markerRecords.map((record) => [record.point.id, record]));
-  const nextIds = new Set(points.map((point) => point.id));
+  const recordsById = new Map(markerRecords.map((record) => [record.id, record]));
+  const markerPoints = markerPointsForMap(map, points, publicMode, selectedPointId, focusedPointId);
+  const nextIds = new Set(markerPoints.map((point) => point.id));
 
   markerRecords.forEach((record) => {
-    if (!nextIds.has(record.point.id)) {
+    if (!nextIds.has(record.id)) {
       record.marker.remove();
     }
   });
@@ -552,14 +660,21 @@ function syncMarkers(
     .filter((p) => p.kind === "Gempa")
     .sort((a, b) => (b.timestampMs ?? 0) - (a.timestampMs ?? 0))[0]?.id;
 
-  return points.map((point) => {
+  return markerPoints.map((point) => {
     const existing = recordsById.get(point.id);
 
     if (existing) {
+      existing.id = point.id;
       existing.point = point;
+      existing.element.classList.add("crisis-map-marker");
       existing.element.dataset.status = point.status;
       existing.element.dataset.kind = point.kind;
       existing.element.dataset.selected = point.id === selectedPointId ? "true" : "false";
+      if (point.kind === "Distribution") {
+        existing.element.dataset.stale = point.isStale ? "true" : "false";
+      } else {
+        existing.element.removeAttribute("data-stale");
+      }
       existing.element.setAttribute("aria-label", `${point.kind}: ${point.name}`);
       if (point.kind === "Gempa") {
         existing.element.removeAttribute("data-erupting");
@@ -600,10 +715,13 @@ function syncMarkers(
     }
 
     const element = document.createElement("button");
-    element.className = "crisis-map-marker";
+    element.classList.add("crisis-map-marker");
     element.dataset.status = point.status;
     element.dataset.kind = point.kind;
     element.dataset.selected = point.id === selectedPointId ? "true" : "false";
+    if (point.kind === "Distribution") {
+      element.dataset.stale = point.isStale ? "true" : "false";
+    }
     element.type = "button";
     element.setAttribute("aria-label", `${point.kind}: ${point.name}`);
     element.onclick = () => {
@@ -625,7 +743,10 @@ function syncMarkers(
       element.innerHTML = markerIconSvg(point.kind);
     }
 
-    const marker = new maplibregl.Marker({ element })
+    const marker = new maplibregl.Marker({
+      element,
+      anchor: point.kind === "Gunung Api" ? "bottom" : "center",
+    })
       .setLngLat([point.longitude, point.latitude]);
 
     if (shouldUseMapPopup(publicMode)) {
@@ -635,7 +756,7 @@ function syncMarkers(
 
     marker.addTo(map);
 
-    return { marker, element, point };
+    return { id: point.id, marker, element, point };
   });
 }
 
@@ -668,52 +789,17 @@ function moveCameraToPoints(
   map.easeTo({ center: fallbackCenter, zoom: fallbackZoom, duration, essential: false });
 }
 
-function pointPosition(point: MapPoint, points: MapPoint[], index: number) {
-  const sameKindIndex = points.slice(0, index).filter((item) => item.kind === point.kind).length;
-  const lane: Record<MapPoint["kind"], { left: number; top: number; dx: number; dy: number }> = {
-    Kejadian: { left: 78, top: 24, dx: -7, dy: 16 },
-    Gempa: { left: 78, top: 24, dx: -7, dy: 16 },
-    "Gunung Api": { left: 62, top: 20, dx: -6, dy: 15 },
-    Posko: { left: 33, top: 36, dx: 9, dy: 18 },
-    "Critical Need": { left: 50, top: 56, dx: 10, dy: 12 },
-    Distribution: { left: 24, top: 24, dx: 9, dy: 12 },
-  };
-  const currentLane = lane[point.kind];
-  const left = currentLane.left + (sameKindIndex % 3) * currentLane.dx;
-  const top = currentLane.top + Math.floor(sameKindIndex / 3) * currentLane.dy;
-
-  return {
-    left: `${Math.min(84, Math.max(16, left))}%`,
-    top: `${Math.min(80, Math.max(14, top))}%`,
-  };
-}
-
 function OperationalMapView({
   points,
   publicMode,
-  selectedPointId,
-  onPointSelect,
   action,
   showOperationalPoints,
 }: {
   points: MapPoint[];
   publicMode: boolean;
-  selectedPointId?: string;
-  onPointSelect?: (point: MapPoint) => void;
   action?: ReactNode;
   showOperationalPoints: boolean;
 }) {
-  const visiblePoints = points.length ? points : [{
-    id: "operational-map-origin",
-    name: "Crisis Situation Map",
-    location: "Wilayah operasi",
-    latitude: -0.36,
-    longitude: 100.41,
-    status: "warning" as const,
-    kind: "Kejadian" as const,
-    detail: "Menunggu titik layanan.",
-  }];
-
   return (
     <div
       className="absolute inset-0 overflow-hidden bg-[linear-gradient(145deg,#eef8f5_0%,#dfeee9_48%,#f7f4ea_100%)]"
@@ -725,61 +811,11 @@ function OperationalMapView({
       <div className="absolute bottom-8 right-10 h-28 w-44 rounded-[45%] border border-status-info/25 bg-status-info/10" />
       {showOperationalPoints ? <div className="absolute left-6 top-5 z-10 rounded-xl border bg-card/86 px-3 py-2 shadow-sm backdrop-blur">
         <p className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">Peta dasar belum siap</p>
-        <p className="mt-1 text-sm font-semibold">Titik layanan tetap tersedia</p>
+        <p className="mt-1 text-sm font-semibold">Daftar lokasi tetap tersedia di panel</p>
       </div> : null}
-      {showOperationalPoints && !publicMode ? <div className="absolute right-4 top-4 z-10 hidden max-w-[16rem] grid-cols-2 gap-2 rounded-xl border bg-card/86 p-3 shadow-sm backdrop-blur sm:grid">
-        {markerLegend.map(({ label, icon: Icon, tone }) => (
-          <div key={label} className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            <span className={cn("grid size-6 place-items-center rounded-lg", tone)}><Icon className="size-3.5" /></span>
-            {label}
-          </div>
-        ))}
-      </div> : null}
-      {showOperationalPoints ? visiblePoints.map((point, index) => {
-        const position = pointPosition(point, visiblePoints, index);
-        const selected = point.id === selectedPointId;
-        const Icon = markerLegend.find((item) => item.kind === point.kind)?.icon ?? DrawingPinFilledIcon;
-
-        return (
-          <button
-            key={point.id}
-            type="button"
-            className={cn(
-              "group absolute z-20 -translate-x-1/2 -translate-y-1/2 text-left transition hover:z-30 hover:-translate-y-[calc(50%+2px)] focus-visible:z-30 focus-visible:-translate-y-[calc(50%+2px)]",
-              selected && "ring-2 ring-primary",
-            )}
-            style={position}
-            onClick={() => onPointSelect?.(point)}
-            aria-label={`${point.kind}: ${point.name}`}
-          >
-            <span className="flex flex-col items-center gap-1">
-              <span className={cn("grid size-10 place-items-center rounded-full border-2 border-card text-white shadow-lg ring-8", point.status === "critical" ? "bg-status-critical ring-status-critical/16" : point.status === "major" ? "bg-status-major ring-status-major/18" : point.status === "warning" ? "bg-status-warning text-foreground ring-status-warning/22" : "bg-status-safe ring-status-safe/18")}>
-                <Icon className="size-4" />
-              </span>
-              <span className="hidden max-w-28 truncate rounded-full border bg-card/90 px-2 py-1 text-center text-xs font-semibold shadow-sm backdrop-blur sm:block">{point.name}</span>
-            </span>
-            <div className="pointer-events-none absolute left-1/2 top-full mt-2 hidden w-56 -translate-x-1/2 rounded-xl border bg-card/95 p-3 text-xs leading-5 text-muted-foreground shadow-lg group-hover:block group-focus-visible:block">
-              <p className="font-semibold text-foreground">{point.location}</p>
-              <div className="mt-2 flex items-center gap-2">
-                <StatusBadge status={point.status} className="h-6 text-xs" />
-                <span>{point.kind === "Kejadian" ? "Incident" : point.kind === "Posko" ? "Shelter" : point.kind}</span>
-              </div>
-              <p className="mt-2">{publicMode ? "Info aman untuk warga." : point.detail}</p>
-            </div>
-          </button>
-        );
-      }) : null}
       {showOperationalPoints ? <div className="absolute inset-x-4 bottom-4 z-10 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        {!publicMode ? <div className="grid grid-cols-2 gap-2 rounded-xl border bg-card/88 p-2 shadow-sm backdrop-blur sm:hidden">
-          {markerLegend.map(({ label, icon: Icon, tone }) => (
-            <div key={label} className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-              <span className={cn("grid size-6 place-items-center rounded-lg", tone)}><Icon className="size-3.5" /></span>
-              {label}
-            </div>
-          ))}
-        </div> : null}
         <div className="rounded-xl border bg-card/88 px-3 py-2 text-xs text-muted-foreground shadow-sm backdrop-blur">
-          {visiblePoints.length} titik layanan tersedia
+          {points.length} titik tercantum di panel
         </div>
         {action}
       </div> : null}
@@ -820,40 +856,47 @@ export function CrisisMap({
   cameraFocusMode?: CameraFocusMode;
   showUserLocationControl?: boolean;
 }) {
+  const anchoredPoints = useMemo(
+    () => geographicPoints(focusedPoint ? [...points, focusedPoint] : points),
+    [focusedPoint, points],
+  );
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<MarkerRecord[]>([]);
-  const latestPointsRef = useRef(points);
+  const latestPointsRef = useRef(anchoredPoints);
   const latestCenterRef = useRef(center);
   const latestZoomRef = useRef(zoom);
   const latestPaddingRef = useRef(fitBoundsPadding);
   const latestPublicModeRef = useRef(publicMode);
   const latestSelectedPointIdRef = useRef(selectedPointId);
+  const latestFocusedPointIdRef = useRef(focusedPoint?.id);
   const latestOnPointSelectRef = useRef(onPointSelect);
   const latestCameraFocusModeRef = useRef<CameraFocusMode>(cameraFocusMode);
   const [failed, setFailed] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [locationNotice, setLocationNotice] = useState<string | null>(null);
+  const [locationNotice, setLocationNotice] = useState<{ title: string; description: string } | null>(null);
+  const [markerFailed, setMarkerFailed] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const locationNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialCameraFitDoneRef = useRef(false);
 
-  const showLocationNotice = useCallback((message: string) => {
-    setLocationNotice(message);
+  const showLocationNotice = useCallback((title: string, description: string) => {
+    setLocationNotice({ title, description });
     if (locationNoticeTimerRef.current) clearTimeout(locationNoticeTimerRef.current);
     locationNoticeTimerRef.current = setTimeout(() => setLocationNotice(null), 10000);
   }, []);
 
   useLayoutEffect(() => {
-    latestPointsRef.current = points;
+    latestPointsRef.current = anchoredPoints;
     latestCenterRef.current = center;
     latestZoomRef.current = zoom;
     latestPaddingRef.current = fitBoundsPadding;
     latestPublicModeRef.current = publicMode;
     latestSelectedPointIdRef.current = selectedPointId;
+    latestFocusedPointIdRef.current = focusedPoint?.id;
     latestOnPointSelectRef.current = onPointSelect;
     latestCameraFocusModeRef.current = cameraFocusMode;
-  }, [cameraFocusMode, center, fitBoundsPadding, onPointSelect, points, publicMode, selectedPointId, zoom]);
+  }, [anchoredPoints, cameraFocusMode, center, fitBoundsPadding, focusedPoint, onPointSelect, publicMode, selectedPointId, zoom]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -888,7 +931,6 @@ export function CrisisMap({
       map.scrollZoom.setWheelZoomRate(1 / 450);
 
       if (showControls) {
-        map.addControl(new maplibregl.NavigationControl({ showCompass: false }), controlPosition);
         if (showUserLocationControl) {
           const geolocateControl = new maplibregl.GeolocateControl({
             positionOptions: {
@@ -902,8 +944,14 @@ export function CrisisMap({
             showUserLocation: true,
           });
 
-          geolocateControl.on("error", () => {
-            showLocationNotice(locationNoticeMessage);
+          geolocateControl.on("error", (error) => {
+            const denied = "code" in error && error.code === 1;
+            showLocationNotice(
+              denied ? "Izin lokasi ditolak" : "Lokasi tidak ditemukan",
+              denied
+                ? "Peta tetap dapat digunakan. Izinkan akses lokasi melalui pengaturan browser lalu coba lagi."
+                : "Sinyal lokasi belum tersedia atau permintaan melewati batas waktu. Coba dari area yang lebih terbuka.",
+            );
           });
           geolocateControl.on("geolocate", () => {
             setLocationNotice(null);
@@ -914,11 +962,61 @@ export function CrisisMap({
 
           map.addControl(geolocateControl, controlPosition);
         }
+        map.addControl(new maplibregl.NavigationControl({ showCompass: false }), controlPosition);
+        map.addControl(new maplibregl.NavigationControl({ showZoom: false, showCompass: true, visualizePitch: true }), controlPosition);
+        map.addControl(new maplibregl.FullscreenControl(), controlPosition);
       }
-      if (!publicMode) {
-        map.addControl(createOperationalLegendControl(), "top-right");
-      }
-      map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
+
+      map.addControl(new maplibregl.AttributionControl({ compact: true }), publicMode ? "bottom-left" : "bottom-right");
+      [
+        [".maplibregl-ctrl-geolocate", "Pusatkan lokasi saya"],
+        [".maplibregl-ctrl-zoom-in", "Perbesar peta"],
+        [".maplibregl-ctrl-zoom-out", "Perkecil peta"],
+        [".maplibregl-ctrl-compass", "Arah utara"],
+        [".maplibregl-ctrl-fullscreen", "Layar penuh"],
+        [".maplibregl-ctrl-attrib-button", "Informasi peta"],
+      ].forEach(([selector, label]) => {
+        const button = containerRef.current?.querySelector<HTMLButtonElement>(selector);
+        if (button) {
+          button.setAttribute("aria-label", label);
+          button.setAttribute("title", label);
+        }
+      });
+      const syncMapLayers = () => {
+        try {
+          syncOperationalLayers(map, latestPointsRef.current);
+          if (latestPublicModeRef.current) {
+            syncPublicClusterLayers(map, latestPointsRef.current, latestSelectedPointIdRef.current);
+          }
+          setMarkerFailed(false);
+        } catch {
+          setMarkerFailed(true);
+        }
+      };
+      const syncRenderedMarkers = () => {
+        try {
+          markersRef.current = syncMarkers(
+            map,
+            markersRef.current,
+            latestPointsRef.current,
+            latestPublicModeRef.current,
+            latestSelectedPointIdRef.current,
+            latestOnPointSelectRef.current,
+            latestFocusedPointIdRef.current,
+          );
+          setMarkerFailed(false);
+        } catch {
+          setMarkerFailed(true);
+        }
+      };
+
+      map.on("style.load", syncMapLayers);
+      map.on("data", (event) => {
+        if (
+          "sourceId" in event && event.sourceId === publicClusterSourceId &&
+          "isSourceLoaded" in event && event.isSourceLoaded
+        ) syncRenderedMarkers();
+      });
       loadTimer = setTimeout(() => {
         if (!disposed && !map.loaded()) {
           setLoading(false);
@@ -929,15 +1027,24 @@ export function CrisisMap({
         if (loadTimer) clearTimeout(loadTimer);
         setLoading(false);
         setFailed(false);
-        syncOperationalLayers(map, latestPointsRef.current);
-        markersRef.current = syncMarkers(
-          map,
-          markersRef.current,
-          latestPointsRef.current,
-          latestPublicModeRef.current,
-          latestSelectedPointIdRef.current,
-          latestOnPointSelectRef.current,
-        );
+        syncMapLayers();
+        syncRenderedMarkers();
+        map.on("zoomend", syncRenderedMarkers);
+        if (latestPublicModeRef.current) {
+          map.on("click", publicClusterCircleLayerId, (event) => {
+            const feature = event.features?.[0];
+            if (!feature || feature.geometry.type !== "Point") return;
+            const [longitude, latitude] = feature.geometry.coordinates;
+            map.easeTo({
+              center: [longitude, latitude],
+              zoom: Math.min(map.getZoom() + 2, publicClusterMaxZoom + 2),
+              duration: 360,
+              essential: false,
+            });
+          });
+          map.on("mouseenter", publicClusterCircleLayerId, () => { map.getCanvas().style.cursor = "pointer"; });
+          map.on("mouseleave", publicClusterCircleLayerId, () => { map.getCanvas().style.cursor = ""; });
+        }
         resizeTimer = setTimeout(() => {
           if (disposed) return;
           map.resize();
@@ -973,35 +1080,40 @@ export function CrisisMap({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map?.loaded()) return;
+    if (!map?.isStyleLoaded()) return;
 
-    syncOperationalLayers(map, points);
-    markersRef.current = syncMarkers(map, markersRef.current, points, publicMode, latestSelectedPointIdRef.current, onPointSelect);
-    if (points.length && !initialCameraFitDoneRef.current) {
+    syncOperationalLayers(map, anchoredPoints);
+    if (publicMode) syncPublicClusterLayers(map, anchoredPoints, latestSelectedPointIdRef.current);
+    markersRef.current = syncMarkers(map, markersRef.current, anchoredPoints, publicMode, latestSelectedPointIdRef.current, onPointSelect, latestFocusedPointIdRef.current);
+    if (anchoredPoints.length && !initialCameraFitDoneRef.current) {
       initialCameraFitDoneRef.current = true;
-      moveCameraToPoints(map, points, center, zoom, fitBoundsPadding, 620, cameraFocusMode);
+      moveCameraToPoints(map, anchoredPoints, center, zoom, fitBoundsPadding, 620, cameraFocusMode);
     }
-  }, [cameraFocusMode, center, fitBoundsPadding, onPointSelect, points, publicMode, zoom]);
+  }, [anchoredPoints, cameraFocusMode, center, fitBoundsPadding, onPointSelect, publicMode, zoom]);
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map?.loaded() || resetViewSignal === 0) return;
+    if (!map?.isStyleLoaded() || resetViewSignal === 0) return;
 
-    const bounds = boundsForPoints(points, cameraFocusMode, map);
+    const bounds = boundsForPoints(anchoredPoints, cameraFocusMode, map);
     if (bounds) {
       map.fitBounds(bounds, { padding: fitBoundsPadding, maxZoom: operationalMaxZoom, duration: 260 });
       return;
     }
 
     map.easeTo({ center, zoom, duration: 260, essential: false });
-  }, [cameraFocusMode, center, fitBoundsPadding, points, resetViewSignal, zoom]);
+  }, [anchoredPoints, cameraFocusMode, center, fitBoundsPadding, resetViewSignal, zoom]);
 
   useEffect(() => {
     markersRef.current.forEach(({ element, point }) => {
-      element.dataset.selected = point.id === selectedPointId ? "true" : "false";
+      if (point) element.dataset.selected = point.id === selectedPointId ? "true" : "false";
     });
-    const selected = focusedPoint ?? markersRef.current.find(({ point }) => point.id === selectedPointId)?.point;
+    const selected = focusedPoint ?? latestPointsRef.current.find((point) => point.id === selectedPointId);
     const map = mapRef.current;
+    if (map?.isStyleLoaded()) {
+      if (publicMode) syncPublicClusterLayers(map, latestPointsRef.current, selectedPointId);
+      markersRef.current = syncMarkers(map, markersRef.current, latestPointsRef.current, publicMode, selectedPointId, latestOnPointSelectRef.current, focusedPoint?.id);
+    }
     if (selected && map) {
       focusMapPoint(map, selected, publicMode);
     }
@@ -1013,15 +1125,17 @@ export function CrisisMap({
       suppressHydrationWarning
     >
       <OperationalMapView
-        points={points}
+        points={anchoredPoints}
         publicMode={publicMode}
-        selectedPointId={selectedPointId}
-        onPointSelect={onPointSelect}
         showOperationalPoints={failed}
         action={failed ? (
-          <Button className="min-h-10 bg-card/92 backdrop-blur" variant="outline" onClick={() => { setFailed(false); setLoading(true); setRetryKey((value) => value + 1); }}>
-            <ReloadIcon /> Coba muat ulang
-          </Button>
+          <PublicMapStatus
+            tone="critical"
+            title="Peta gagal dimuat"
+            description="Peta dasar tidak tersedia. Daftar lokasi di panel tetap dapat digunakan."
+            actionLabel="Muat ulang"
+            onAction={() => { setFailed(false); setLoading(true); setMarkerFailed(false); setRetryKey((value) => value + 1); }}
+          />
         ) : undefined}
       />
       <div ref={containerRef} className={cn("absolute inset-0 h-full w-full transition-opacity", loading || failed ? "opacity-0" : "opacity-100")} />
@@ -1030,14 +1144,28 @@ export function CrisisMap({
           <div className="flex items-center gap-3 rounded-full border bg-card/90 px-4 py-2 text-sm font-medium shadow-sm backdrop-blur"><UpdateIcon className="size-4 animate-spin text-primary" /> Menyiapkan peta</div>
         </div>
       ) : null}
+      {markerFailed && !failed ? (
+        <PublicMapStatus
+          compact
+          className="public-map-marker-status"
+          tone="warning"
+          title="Sebagian marker gagal muncul"
+          description="Daftar lokasi tetap lengkap. Muat ulang peta untuk mencoba menampilkan marker kembali."
+          actionLabel="Coba lagi"
+          onAction={() => { setMarkerFailed(false); setLoading(true); setRetryKey((value) => value + 1); }}
+        />
+      ) : null}
       {locationNotice ? (
-        <div className="public-map-location-notice" role="status" aria-live="polite">
-          <DrawingPinFilledIcon className="size-5 shrink-0" />
-          <p>{locationNotice}</p>
-          <button type="button" onClick={() => setLocationNotice(null)} aria-label="Tutup pemberitahuan lokasi">
-            <Cross2Icon className="size-5" />
-          </button>
-        </div>
+        <PublicMapStatus
+          className="public-map-location-notice"
+          tone="warning"
+          title={locationNotice.title}
+          description={locationNotice.description}
+          actionLabel="Coba lagi"
+          onAction={() => containerRef.current?.querySelector<HTMLButtonElement>(".maplibregl-ctrl-geolocate")?.click()}
+          secondaryActionLabel="Tutup"
+          onSecondaryAction={() => setLocationNotice(null)}
+        />
       ) : null}
     </div>
   );
